@@ -1,0 +1,36 @@
+id: compliance_agent
+name: Compliance Agent
+category: data_ops
+description: >
+  Detects possible sensitive data exposure, PII handling risks, and compliance
+  concerns in schemas, samples, reports, or generated outputs.
+capabilities:
+  - pii_detection
+  - compliance_review
+input_contract:
+  required:
+    - content
+  optional:
+    - schema
+    - sample_rows
+    - policy
+output_contract:
+  format: json
+  required_fields:
+    - sensitive_data_findings
+    - policy_risks
+    - redactions
+    - confidence
+models:
+  default: local/gemma-3-4b
+  fallback:
+    - google/gemini-flash
+tools:
+  - agentflow_pii_detector
+fallback_agents: []
+troubleshooting:
+  enabled: true
+  agent: troubleshooting_agent
+validation:
+  strict_json: true
+  confidence_threshold: 0.8

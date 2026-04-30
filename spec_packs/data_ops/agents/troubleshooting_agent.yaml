@@ -1,0 +1,33 @@
+id: troubleshooting_agent
+name: Troubleshooting Agent
+category: support
+description: >
+  Explains runtime failures in plain language and suggests safe recovery steps
+  without exposing internal implementation details.
+capabilities:
+  - failure_explanation
+  - troubleshooting
+input_contract:
+  required:
+    - failed_agent
+    - error_type
+  optional:
+    - error_message
+    - agent_output
+output_contract:
+  format: json
+  required_fields:
+    - root_cause
+    - failure_type
+    - suggested_fix
+    - auto_repair_possible
+models:
+  default: local/gemma-3-4b
+  fallback:
+    - google/gemini-flash
+tools: []
+fallback_agents: []
+troubleshooting:
+  enabled: false
+validation:
+  strict_json: true

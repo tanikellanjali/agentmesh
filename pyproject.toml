@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentmesh"
+version = "0.1.0"
+description = "Spec-driven open-source agent mesh runtime."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "httpx>=0.27",
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "rich>=13.7,<14",
+  "typer>=0.12",
+  "uvicorn>=0.29",
+]
+
+[project.optional-dependencies]
+agentflow = [
+  "agentflow-pii-detector",
+  "agentflow-sql-analyzer",
+  "agentflow-report-generator",
+]
+dev = [
+  "pytest>=8.2",
+]
+
+[project.scripts]
+agentmesh = "agentmesh.cli.main:app"
+
+[tool.setuptools.packages.find]
+include = ["agentmesh*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

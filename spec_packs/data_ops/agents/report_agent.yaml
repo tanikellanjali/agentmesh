@@ -1,0 +1,33 @@
+id: report_agent
+name: Report Generator Agent
+category: data_ops
+description: >
+  Composes agent outputs into a concise technical report with findings,
+  risks, recommended actions, and machine-readable summary metadata.
+capabilities:
+  - report_generation
+  - response_composition
+input_contract:
+  required:
+    - agent_outputs
+  optional:
+    - response_contract
+output_contract:
+  format: markdown
+  required_fields:
+    - summary
+    - findings
+    - recommendations
+    - risks
+models:
+  default: local/gemma-3-4b
+  fallback:
+    - google/gemini-flash
+tools:
+  - agentflow_report_generator
+fallback_agents: []
+troubleshooting:
+  enabled: true
+  agent: troubleshooting_agent
+validation:
+  strict_json: false

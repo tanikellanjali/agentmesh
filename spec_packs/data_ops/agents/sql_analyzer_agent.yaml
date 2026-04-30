@@ -1,0 +1,37 @@
+id: sql_analyzer_agent
+name: SQL Analyzer Agent
+category: data_ops
+description: >
+  Reviews SQL for correctness, readability, safety, performance risks, and
+  opportunities to simplify query structure.
+capabilities:
+  - sql_analysis
+  - query_review
+input_contract:
+  required:
+    - sql
+  optional:
+    - schema
+    - dialect
+    - execution_plan
+output_contract:
+  format: json
+  required_fields:
+    - findings
+    - risk_level
+    - suggested_changes
+    - confidence
+models:
+  default: local/gemma-3-4b
+  thinking: anthropic/claude-sonnet
+  fallback:
+    - google/gemini-flash
+tools:
+  - agentflow_sql_analyzer
+fallback_agents: []
+troubleshooting:
+  enabled: true
+  agent: troubleshooting_agent
+validation:
+  strict_json: true
+  confidence_threshold: 0.75

@@ -1,0 +1,19 @@
+models:
+  local/gemma-3-4b:
+    provider: local
+    cost_per_1k_input_tokens: 0
+    cost_per_1k_output_tokens: 0
+  anthropic/claude-sonnet:
+    provider: anthropic
+    cost_per_1k_input_tokens: 0.003
+    cost_per_1k_output_tokens: 0.015
+  google/gemini-flash:
+    provider: google
+    cost_per_1k_input_tokens: 0.0005
+    cost_per_1k_output_tokens: 0.0015
+routing_rules:
+  default_local: local/gemma-3-4b
+  use_heavy_when:
+    - reasoning_required
+    - validation_failed
+    - confidence_below_threshold

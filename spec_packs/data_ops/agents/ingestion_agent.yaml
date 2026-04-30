@@ -1,0 +1,35 @@
+id: ingestion_agent
+name: Ingestion Agent
+category: data_ops
+description: >
+  Profiles incoming files, schemas, tables, or SQL snippets and normalizes
+  them into structured runtime context for downstream agents.
+capabilities:
+  - data_ingestion
+  - schema_profiling
+input_contract:
+  required:
+    - source
+  optional:
+    - sample_rows
+    - schema
+    - sql
+output_contract:
+  format: json
+  required_fields:
+    - source_summary
+    - detected_schema
+    - warnings
+    - confidence
+models:
+  default: local/gemma-3-4b
+  fallback:
+    - google/gemini-flash
+tools: []
+fallback_agents: []
+troubleshooting:
+  enabled: true
+  agent: troubleshooting_agent
+validation:
+  strict_json: true
+  confidence_threshold: 0.7

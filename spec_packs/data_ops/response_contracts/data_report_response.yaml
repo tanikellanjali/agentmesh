@@ -1,0 +1,7 @@
+format: markdown
+sections:
+  - summary
+  - findings
+  - risks
+  - recommendations
+  - machine_readable_metadata

@@ -1,0 +1,34 @@
+id: data_quality_agent
+name: Data Quality Agent
+category: data_ops
+description: >
+  Identifies missing values, duplicate records, type mismatches, outliers,
+  constraint violations, and data readiness risks.
+capabilities:
+  - data_quality_check
+  - anomaly_detection
+input_contract:
+  required:
+    - detected_schema
+  optional:
+    - sample_rows
+    - quality_rules
+output_contract:
+  format: json
+  required_fields:
+    - quality_findings
+    - severity
+    - recommendations
+    - confidence
+models:
+  default: local/gemma-3-4b
+  fallback:
+    - google/gemini-flash
+tools: []
+fallback_agents: []
+troubleshooting:
+  enabled: true
+  agent: troubleshooting_agent
+validation:
+  strict_json: true
+  confidence_threshold: 0.72

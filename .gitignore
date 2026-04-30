@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.runs/
+.env
+.venv/
+dist/
+build/
+
+# Local planning/reference docs, not part of the generic open-source package.
+ARCHITECTURE_FOR_CODEX.md
+QVERSE_NEXT_*.md

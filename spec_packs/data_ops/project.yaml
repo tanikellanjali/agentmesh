@@ -1,0 +1,13 @@
+id: data_ops
+name: Data Operations Agent Pack
+description: >
+  A generic multi-agent data operations project for inspecting datasets,
+  analyzing SQL, detecting sensitive data, checking quality, and producing
+  implementation-ready reports.
+entrypoint: data_ops_request
+default_persona:
+  user: personas/user_persona.md
+  use_case: personas/use_case_persona.md
+agent_dir: agents
+model_routing: models/model_routing.yaml
+response_contract: response_contracts/data_report_response.yaml

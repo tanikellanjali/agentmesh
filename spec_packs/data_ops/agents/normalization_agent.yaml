@@ -1,0 +1,34 @@
+id: normalization_agent
+name: Normalization Agent
+category: data_ops
+description: >
+  Recommends field normalization, type cleanup, naming consistency, and
+  canonical schema mappings for semi-structured data.
+capabilities:
+  - data_normalization
+  - schema_mapping
+input_contract:
+  required:
+    - detected_schema
+  optional:
+    - sample_rows
+    - naming_rules
+output_contract:
+  format: json
+  required_fields:
+    - normalized_schema
+    - transformations
+    - warnings
+    - confidence
+models:
+  default: local/gemma-3-4b
+  fallback:
+    - google/gemini-flash
+tools: []
+fallback_agents: []
+troubleshooting:
+  enabled: true
+  agent: troubleshooting_agent
+validation:
+  strict_json: true
+  confidence_threshold: 0.72

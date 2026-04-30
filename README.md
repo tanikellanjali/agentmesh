@@ -1,0 +1,2 @@
+# agentmesh
+Horizontal multiagentic distribution

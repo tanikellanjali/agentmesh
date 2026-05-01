@@ -1,0 +1,5 @@
+{
+  "project": "data_ops",
+  "message": "Review this SQL query for performance, missing values, and summarize the risks.",
+  "user_id": "default_user"
+}

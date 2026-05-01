@@ -14,7 +14,7 @@ def test_list_projects_loads_data_ops() -> None:
     projects = list_projects(SPEC_PACKS)
 
     assert [project.id for project in projects] == ["data_ops"]
-    assert projects[0].agent_dir == "agents"
+    assert all(project.agent_dir == "agents" for project in projects)
 
 
 def test_load_project_loads_agent_specs() -> None:

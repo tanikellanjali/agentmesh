@@ -5,7 +5,6 @@ import pytest
 from agentmesh.core.project_loader import list_projects, load_project
 from agentmesh.core.spec_loader import SpecLoadError, load_agent_spec
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SPEC_PACKS = ROOT / "spec_packs"
 

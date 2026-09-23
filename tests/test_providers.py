@@ -40,7 +40,7 @@ class RecordingProvider(SingleShotMixin):
         self.error = error
         self.calls = []
 
-    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None, timeout=None):
         prompt = next((m.content for m in messages if m.role == "user"), "")
         self.calls.append({"system": system, "prompt": prompt, "model": model})
         if self.error:

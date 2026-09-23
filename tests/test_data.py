@@ -1,10 +1,10 @@
 import pytest
 
 from agentmesh.access.authorizer import AccessDenied, DenyAll
-from agentmesh.access.principal import ANONYMOUS, Principal
+from agentmesh.access.principal import Principal
 from agentmesh.core.run_context import RunContext
 from agentmesh.core.telemetry import RunRecorder
-from agentmesh.data.base import DataBudgetExceeded, DataError, DataRequirement
+from agentmesh.data.base import DataBudgetExceeded, DataError
 from agentmesh.data.context import SourceRegistry
 from agentmesh.data.sqlite_source import CsvSource, SqliteSource
 from agentmesh.schemas.agent_spec import AgentSpec
@@ -23,17 +23,17 @@ def csv_registry(tmp_path):
 
 
 def spec_with_data(**overrides):
-    base = dict(
-        id="pl_agent", name="P&L Agent", category="finance",
-        description="margins", capabilities=["profit_loss"],
-        input_contract={"required": ["message"]},
-        output_contract={"format": "json", "required_fields": ["summary"]},
-        models={"default": "mock/deterministic"},
-        data_requirements=[{
+    base = {
+        "id": "pl_agent", "name": "P&L Agent", "category": "finance",
+        "description": "margins", "capabilities": ["profit_loss"],
+        "input_contract": {"required": ["message"]},
+        "output_contract": {"format": "json", "required_fields": ["summary"]},
+        "models": {"default": "mock/deterministic"},
+        "data_requirements": [{
             "name": "transactions",
             "required_columns": ["supplier", "units"],
         }],
-    )
+    }
     base.update(overrides)
     return AgentSpec(**base)
 

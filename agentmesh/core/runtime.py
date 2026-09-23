@@ -5,18 +5,26 @@ from pathlib import Path
 from typing import Any
 
 from agentmesh.access.authorizer import AllowAll, Authorizer
+from agentmesh.access.catalog import LocalCatalog
 from agentmesh.access.principal import ANONYMOUS, Principal
 from agentmesh.core.agent_registry import AgentRegistry
 from agentmesh.core.agent_store import persist_agents
 from agentmesh.core.capability_matcher import CapabilityMatch, match_capabilities
 from agentmesh.core.model_router import ModelBroker
 from agentmesh.core.model_settings import configured_env
-from agentmesh.core.run_context import RunContext
-from agentmesh.core.telemetry import RunRecorder
 from agentmesh.core.need_resolver import NeedResolution, resolve_needs
 from agentmesh.core.orchestrator import RunResult, run_agents
 from agentmesh.core.project_loader import DEFAULT_SPEC_PACKS_DIR, LoadedProject, load_project
+from agentmesh.core.resolver import (
+    AgentPlan,
+    CatalogResolver,
+    ModelResolver,
+    Resolver,
+)
+from agentmesh.core.run_context import RunContext
+from agentmesh.core.run_store import DEFAULT_RUN_DIR, persist_run
 from agentmesh.core.spec_loader import read_yaml
+from agentmesh.core.telemetry import RunRecorder
 from agentmesh.data.context import SourceRegistry
 from agentmesh.providers.retry import RetryPolicy
 
@@ -29,6 +37,7 @@ class RuntimeResult:
     run: RunResult
     recorder: RunRecorder = field(default_factory=RunRecorder)
     principal: Principal = ANONYMOUS
+    plan: AgentPlan | None = None
     stored_agent_paths: list[Path] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -42,6 +51,7 @@ class RuntimeResult:
             "selected_agents": self.run.selected_agents,
             "missing_capabilities": self.match.missing_capabilities,
             "synthesized_agents": [agent.id for agent in self.match.synthesized_agents],
+            "plan": self.plan.as_dict() if self.plan else None,
             "stored_agents": [str(path) for path in self.stored_agent_paths],
             "graph": {
                 "levels": self.run.levels,
@@ -118,15 +128,12 @@ def run_project(
     authorizer: Authorizer | None = None,
     sources: SourceRegistry | None = None,
     max_data_cost: float | None = None,
+    persist: bool = False,
+    run_dir=DEFAULT_RUN_DIR,
+    resolver: Resolver | str | None = None,
 ) -> RuntimeResult:
     loaded = load_project(project_id, spec_packs_dir)
-    resolution = resolve_needs(message)
     registry = AgentRegistry(loaded.agents)
-    match = match_capabilities(
-        resolution.required_capabilities,
-        registry,
-        synthesize=synthesize,
-    )
     # No default ceiling: a budget cap exists only when the caller sets one.
     recorder = RunRecorder(max_cost=max_cost)
     broker = build_broker(
@@ -137,6 +144,29 @@ def run_project(
         recorder=recorder,
         retry_policy=retry_policy,
     )
+
+    chosen = choose_resolver(resolver, loaded, broker)
+    plan: AgentPlan | None = None
+
+    if chosen is None:
+        resolution = resolve_needs(message)
+        match = match_capabilities(
+            resolution.required_capabilities, registry, synthesize=synthesize
+        )
+        selected = match.selected_agents
+    else:
+        catalog = LocalCatalog(entries=loaded.agents, authorizer=authorizer)
+        plan = chosen.resolve(message, catalog, principal)
+        selected = plan.agents
+        resolution = NeedResolution(
+            required_capabilities=plan.capabilities,
+            reasoning=plan.reasoning,
+        )
+        match = CapabilityMatch(
+            selected_agents=selected,
+            missing_capabilities=plan.blocked_ids,
+            synthesized_agents=list(plan.create) + [a.spec for a in plan.adapt],
+        )
     run_context = RunContext(
         principal=principal,
         authorizer=authorizer or AllowAll(),
@@ -145,7 +175,7 @@ def run_project(
         max_data_cost=max_data_cost,
     )
     run = run_agents(
-        message, match.selected_agents, broker,
+        message, selected, broker,
         max_workers=max_workers, run_context=run_context,
     )
 
@@ -158,12 +188,57 @@ def run_project(
             overwrite=overwrite_stored,
         )
 
-    return RuntimeResult(
+    result = RuntimeResult(
         project=loaded,
         resolution=resolution,
         match=match,
         run=run,
         recorder=recorder,
         principal=principal,
+        plan=plan,
         stored_agent_paths=stored,
     )
+
+    if persist:
+        persist_run(result, message, run_dir)
+    return result
+
+
+def choose_resolver(
+    resolver: Resolver | str | None,
+    project: LoadedProject,
+    broker: ModelBroker,
+) -> Resolver | None:
+    """Pick how the mesh is planned.
+
+    `None` auto-selects: a model plans when one is actually reachable, and the
+    deterministic capability matcher runs when it is not. A mock provider cannot
+    plan a mesh, so pretending it can would be dishonest rather than convenient.
+    """
+    if isinstance(resolver, str):
+        if resolver in ("legacy", "keyword"):
+            return None
+        if resolver == "catalog":
+            return CatalogResolver()
+        if resolver != "model":
+            raise ValueError(f"unknown resolver '{resolver}'")
+    elif resolver is not None:
+        return resolver
+
+    planner = _planning_call(project, broker)
+    if planner is None:
+        return None if resolver is None else CatalogResolver()
+    return ModelResolver(planner, fallback=CatalogResolver())
+
+
+def _planning_call(project: LoadedProject, broker: ModelBroker):
+    """A model call for planning, or None when no real model is configured."""
+    if not project.agents:
+        return None
+    try:
+        call = broker.resolve(project.agents[0])
+    except Exception:
+        return None
+    if call.provider.name in ("mock", "local"):
+        return None
+    return call

@@ -33,7 +33,7 @@ def _render(result: ToolResult) -> str:
 
 
 def run_tool_loop(
-    call: "ModelCall",
+    call: ModelCall,
     *,
     system: str,
     prompt: str,

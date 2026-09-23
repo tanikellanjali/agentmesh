@@ -19,8 +19,8 @@ class BaseAgent:
     def __init__(
         self,
         spec: AgentSpec,
-        broker: "ModelBroker | None" = None,
-        run_context: "RunContext | None" = None,
+        broker: ModelBroker | None = None,
+        run_context: RunContext | None = None,
     ) -> None:
         self.spec = spec
         self.broker = broker

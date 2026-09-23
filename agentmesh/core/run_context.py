@@ -24,13 +24,13 @@ class RunContext:
     principal: Principal = ANONYMOUS
     authorizer: Authorizer = field(default_factory=AllowAll)
     sources: SourceRegistry = field(default_factory=SourceRegistry.empty)
-    recorder: "RunRecorder | None" = None
+    recorder: RunRecorder | None = None
     max_data_cost: float | None = None
 
-    def requirements_for(self, spec: "AgentSpec") -> list[DataRequirement]:
+    def requirements_for(self, spec: AgentSpec) -> list[DataRequirement]:
         return [DataRequirement.from_dict(raw) for raw in spec.data_requirements]
 
-    def data_context_for(self, spec: "AgentSpec") -> DataContext:
+    def data_context_for(self, spec: AgentSpec) -> DataContext:
         return DataContext(
             registry=self.sources,
             requirements=self.requirements_for(spec),

@@ -15,7 +15,7 @@ class SlowProvider(SingleShotMixin):
     def __init__(self, credentials=None):
         self.order: list[str] = []
 
-    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None, timeout=None):
         return Turn(
             text='{"summary": "s", "findings": [], "confidence": 0.9, '
             '"recommendations": [], "risks": []}',

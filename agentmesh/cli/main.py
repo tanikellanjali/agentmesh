@@ -265,9 +265,15 @@ def init_project_command(
     project_id: str | None = typer.Option(None, "--project-id"),
     spec_packs_dir: Path = typer.Option(DEFAULT_SPEC_PACKS_DIR, "--spec-packs-dir"),
     agents_dir: Path = typer.Option(Path("agentmesh/agents"), "--agents-dir"),
-    create_venv: bool = typer.Option(False, "--create-venv", help="Create a .venv inside the generated project directory."),
-    yes: bool = typer.Option(False, "--yes", "-y", help="Write the generated files without prompting."),
-    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing generated files."),
+    create_venv: bool = typer.Option(
+        False, "--create-venv", help="Create a .venv inside the generated project."
+    ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y", help="Write the generated files without prompting."
+    ),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", help="Overwrite existing generated files."
+    ),
 ) -> None:
     project = draft_project(description, project_id)
 
@@ -358,8 +364,17 @@ def run_command(
         min=1,
         help="Agents to run concurrently within a dependency level.",
     ),
+    resolver: str | None = typer.Option(
+        None, "--resolver",
+        help="How to plan the mesh: model, catalog or keyword. Auto by default.",
+    ),
+    save_run: bool = typer.Option(
+        False, "--save-run", help="Write the run to .runs/<run_id>/ for inspection."
+    ),
     log_level: str = typer.Option("WARNING", "--log-level"),
-    json_logs: bool = typer.Option(False, "--json-logs", help="Emit one JSON object per model call."),
+    json_logs: bool = typer.Option(
+        False, "--json-logs", help="Emit one JSON object per model call."
+    ),
 ) -> None:
     configure_logging(level=log_level, json_logs=json_logs)
     try:
@@ -375,6 +390,8 @@ def run_command(
             max_cost=max_cost,
             retry_policy=RetryPolicy(max_attempts=max_attempts),
             max_workers=max_workers,
+            resolver=resolver,
+            persist=save_run,
         )
     except SpecLoadError as exc:
         console.print(f"[red]{exc}[/red]")
@@ -485,6 +502,16 @@ def run_command(
         else:
             console.print(f"[dim]Budget: ${result.run.cost:.4f} of ${max_cost:.4f}[/dim]")
     console.print(f"[bold]Final response from[/bold]: {result.run.final_agent_id}")
+    if result.plan:
+        console.print(f"[dim]Planned by: {result.plan.source}[/dim]")
+        if result.plan.blocked_ids:
+            console.print(
+                "[yellow]Blocked by policy[/yellow]: "
+                + ", ".join(result.plan.blocked_ids)
+                + " - ask an owner for access, or create your own agent."
+            )
+    if save_run:
+        console.print(f"[dim]Run saved to .runs/{result.recorder.run_id}/[/dim]")
 
 
 if __name__ == "__main__":

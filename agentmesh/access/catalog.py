@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from agentmesh.access.authorizer import Action, Authorizer, AllowAll, Resource, ResourceKind
+from agentmesh.access.authorizer import Action, AllowAll, Authorizer, Resource, ResourceKind
 from agentmesh.access.principal import ANONYMOUS, Principal
 from agentmesh.schemas.agent_spec import AgentSpec
 
@@ -88,7 +88,7 @@ class LocalCatalog:
     @classmethod
     def from_spec_packs(
         cls, spec_packs_dir: Path, authorizer: Authorizer | None = None
-    ) -> "LocalCatalog":
+    ) -> LocalCatalog:
         from agentmesh.core.project_loader import list_projects, load_project
 
         catalog = cls(authorizer=authorizer)

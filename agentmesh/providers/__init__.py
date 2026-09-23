@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from agentmesh.providers.anthropic_provider import AnthropicProvider
 from agentmesh.providers.base import (
     Completion,
     Provider,
@@ -12,12 +13,14 @@ from agentmesh.providers.base import (
     ProviderUnavailable,
     Usage,
 )
-from agentmesh.providers.anthropic_provider import AnthropicProvider
 from agentmesh.providers.mock import MockProvider
 from agentmesh.providers.openai_provider import OpenAIProvider
 
 __all__ = [
+    "AnthropicProvider",
     "Completion",
+    "MockProvider",
+    "OpenAIProvider",
     "Provider",
     "ProviderAuthError",
     "ProviderError",
@@ -25,9 +28,6 @@ __all__ = [
     "ProviderRefusal",
     "ProviderUnavailable",
     "Usage",
-    "AnthropicProvider",
-    "MockProvider",
-    "OpenAIProvider",
     "get_provider",
     "list_providers",
     "register_provider",

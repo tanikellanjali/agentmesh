@@ -1,8 +1,8 @@
 import pytest
 
 from agentmesh.access.authorizer import (
-    Action,
     AccessDenied,
+    Action,
     AllowAll,
     DenyAll,
     Resource,

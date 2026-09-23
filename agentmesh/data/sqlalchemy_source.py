@@ -12,7 +12,14 @@ import re
 import time
 from typing import Any
 
-from agentmesh.data.base import DataError, QueryEstimate, QueryResult, TableSchema
+from agentmesh.data.base import (
+    DEFAULT_BATCH_SIZE,
+    DataError,
+    QueryEstimate,
+    QueryResult,
+    RowBatch,
+    TableSchema,
+)
 
 _WRITE = re.compile(r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT)\b", re.I)
 _SAFE_REF = re.compile(r"^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*){0,2}$")
@@ -130,3 +137,36 @@ class SqlAlchemySource:
             duration_ms=(time.perf_counter() - started) * 1000,
             truncated=truncated,
         )
+
+    def iter_batches(
+        self,
+        ref: str,
+        query: str,
+        params: dict[str, Any] | None = None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+        max_rows: int | None = None,
+    ):
+        """Stream with a server-side cursor so the database paces the transfer."""
+        self._guard(query)
+        rendered = query.replace("{table}", self._check_ref(ref))
+        try:
+            with self._engine.connect() as conn:
+                result = conn.execution_options(stream_results=True).execute(
+                    self._text(rendered), params or {}
+                )
+                columns = list(result.keys())
+                offset = 0
+                while True:
+                    rows = result.fetchmany(batch_size)
+                    if not rows:
+                        return
+                    if max_rows is not None and offset + len(rows) > max_rows:
+                        rows = rows[: max_rows - offset]
+                    if not rows:
+                        return
+                    yield RowBatch(columns=columns, rows=[tuple(r) for r in rows], offset=offset)
+                    offset += len(rows)
+                    if max_rows is not None and offset >= max_rows:
+                        return
+        except Exception as exc:
+            raise DataError(f"streaming failed on '{self.name}': {exc}") from exc

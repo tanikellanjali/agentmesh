@@ -271,6 +271,3 @@ models:
 
 Cost estimation is documented in [docs/cost_estimation.md](docs/cost_estimation.md).
 The intended plugin list is in [docs/model_plugins.md](docs/model_plugins.md).
-
-> The `agentflow` extra references packages that are not on PyPI;
-> `pip install -e ".[agentflow]"` currently fails.

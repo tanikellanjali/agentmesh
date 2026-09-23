@@ -54,7 +54,7 @@ class McpServer:
         self._error: BaseException | None = None
 
     # -- lifecycle --------------------------------------------------------
-    def connect(self) -> "McpServer":
+    def connect(self) -> McpServer:
         try:
             from mcp import ClientSession, StdioServerParameters  # noqa: F401
             from mcp.client.stdio import stdio_client  # noqa: F401
@@ -81,12 +81,14 @@ class McpServer:
                 command=self.command, args=self.args, env=self.env, cwd=self.cwd
             )
             try:
-                async with stdio_client(params) as (read, write):
-                    async with ClientSession(read, write) as session:
-                        await session.initialize()
-                        self._session = session
-                        self._ready.set()
-                        await self._shutdown.wait()
+                async with (
+                    stdio_client(params) as (read, write),
+                    ClientSession(read, write) as session,
+                ):
+                    await session.initialize()
+                    self._session = session
+                    self._ready.set()
+                    await self._shutdown.wait()
             except BaseException as exc:  # surfaced to connect()
                 self._error = exc
                 self._ready.set()
@@ -105,7 +107,7 @@ class McpServer:
             self._thread.join(timeout=self.timeout)
         self._session = None
 
-    def __enter__(self) -> "McpServer":
+    def __enter__(self) -> McpServer:
         return self.connect()
 
     def __exit__(self, *exc: Any) -> None:

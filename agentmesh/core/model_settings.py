@@ -56,7 +56,9 @@ def provider_available(provider: str, env_values: dict[str, str]) -> bool:
     return bool(env_key and env_values.get(env_key))
 
 
-def list_project_models(project_id: str, spec_packs_dir=DEFAULT_SPEC_PACKS_DIR) -> list[dict[str, object]]:
+def list_project_models(
+    project_id: str, spec_packs_dir=DEFAULT_SPEC_PACKS_DIR
+) -> list[dict[str, object]]:
     loaded = load_project(project_id, spec_packs_dir)
     model_config_path = loaded.root / loaded.spec.model_routing
     raw_config = read_yaml(model_config_path)

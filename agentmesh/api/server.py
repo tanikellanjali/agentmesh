@@ -1,7 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from agentmesh import __version__
+from agentmesh.access.principal import Principal
+from agentmesh.api.auth import Authenticator
 from agentmesh.core.project_loader import list_projects, load_project
 from agentmesh.core.runtime import run_project
 from agentmesh.core.spec_loader import SpecLoadError
@@ -10,6 +12,29 @@ from agentmesh.providers import ProviderError
 from agentmesh.providers.retry import RetryPolicy
 
 app = FastAPI(title="AgentMesh API", version=__version__)
+authenticator = Authenticator()
+
+
+def current_principal(
+    request: Request,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    authorization: str | None = Header(default=None),
+) -> Principal:
+    """Authenticate the caller and hand back who they are."""
+    presented = x_api_key
+    if not presented and authorization and authorization.lower().startswith("bearer "):
+        presented = authorization.split(" ", 1)[1].strip()
+
+    try:
+        return authenticator.authenticate(
+            presented, request.client.host if request.client else None
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=str(exc),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
 
 
 class RunRequest(BaseModel):
@@ -24,12 +49,13 @@ class RunRequest(BaseModel):
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "version": __version__}
+def health() -> dict[str, object]:
+    """Unauthenticated: a liveness probe must not need a credential."""
+    return {"status": "ok", "version": __version__, "auth_configured": authenticator.configured}
 
 
 @app.get("/projects")
-def projects() -> list[dict[str, str]]:
+def projects(principal: Principal = Depends(current_principal)) -> list[dict[str, str]]:
     return [
         {
             "id": project.id,
@@ -42,7 +68,9 @@ def projects() -> list[dict[str, str]]:
 
 
 @app.get("/projects/{project_id}/agents")
-def project_agents(project_id: str) -> list[dict[str, object]]:
+def project_agents(
+    project_id: str, principal: Principal = Depends(current_principal)
+) -> list[dict[str, object]]:
     try:
         loaded = load_project(project_id)
     except SpecLoadError as exc:
@@ -63,7 +91,11 @@ def project_agents(project_id: str) -> list[dict[str, object]]:
 
 
 @app.post("/projects/{project_id}/run")
-def run_project_endpoint(project_id: str, request: RunRequest) -> dict[str, object]:
+def run_project_endpoint(
+    project_id: str,
+    request: RunRequest,
+    principal: Principal = Depends(current_principal),
+) -> dict[str, object]:
     try:
         result = run_project(
             project_id,
@@ -74,6 +106,7 @@ def run_project_endpoint(project_id: str, request: RunRequest) -> dict[str, obje
             model=request.model,
             max_cost=request.max_cost,
             retry_policy=RetryPolicy(max_attempts=request.max_attempts),
+            principal=principal,
         )
     except SpecLoadError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

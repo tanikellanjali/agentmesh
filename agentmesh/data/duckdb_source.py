@@ -13,7 +13,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from agentmesh.data.base import DataError, QueryEstimate, QueryResult, TableSchema
+from agentmesh.data.base import (
+    DEFAULT_BATCH_SIZE,
+    DataError,
+    QueryEstimate,
+    QueryResult,
+    RowBatch,
+    TableSchema,
+)
 
 _WRITE = re.compile(
     r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|COPY|INSTALL|LOAD)\b", re.I
@@ -92,7 +99,7 @@ class DuckDbSource:
         """DuckDB's built-in profile: types, nulls, cardinality, quartiles."""
         cursor = self._execute(f"SUMMARIZE SELECT * FROM {self._relation(ref)}")
         columns = [d[0] for d in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        return [dict(zip(columns, row, strict=False)) for row in cursor.fetchall()]
 
     def estimate(self, ref: str, query: str, params: dict[str, Any] | None = None) -> QueryEstimate:
         self._guard(query)
@@ -136,3 +143,31 @@ class DuckDbSource:
             duration_ms=(time.perf_counter() - started) * 1000,
             truncated=truncated,
         )
+
+    def iter_batches(
+        self,
+        ref: str,
+        query: str,
+        params: dict[str, Any] | None = None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+        max_rows: int | None = None,
+    ):
+        """Stream results in chunks. DuckDB reads from disk, so a file larger
+        than memory is fine as long as the caller does not hoard the batches."""
+        self._guard(query)
+        rendered = query.replace("{table}", self._relation(ref))
+        cursor = self._execute(rendered, params)
+        columns = [d[0] for d in cursor.description] if cursor.description else []
+        offset = 0
+        while True:
+            rows = cursor.fetchmany(batch_size)
+            if not rows:
+                return
+            if max_rows is not None and offset + len(rows) > max_rows:
+                rows = rows[: max_rows - offset]
+            if not rows:
+                return
+            yield RowBatch(columns=columns, rows=[tuple(r) for r in rows], offset=offset)
+            offset += len(rows)
+            if max_rows is not None and offset >= max_rows:
+                return

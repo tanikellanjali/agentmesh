@@ -35,6 +35,7 @@ class MockProvider(SingleShotMixin):
         model: str = "deterministic",
         max_tokens: int = 4096,
         effort: str | None = None,
+        timeout: float | None = None,
     ) -> Turn:
         self.turns.append({"system": system, "messages": list(messages), "model": model})
 

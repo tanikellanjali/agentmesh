@@ -9,10 +9,11 @@ import pytest
 
 anthropic = pytest.importorskip("anthropic")
 
-from anthropic.types import Message, TextBlock, Usage as SdkUsage  # noqa: E402
+from anthropic.types import Message, TextBlock
+from anthropic.types import Usage as SdkUsage
 
-from agentmesh.providers.anthropic_provider import AnthropicProvider  # noqa: E402
-from agentmesh.providers.base import (  # noqa: E402
+from agentmesh.providers.anthropic_provider import AnthropicProvider
+from agentmesh.providers.base import (
     ProviderAuthError,
     ProviderRateLimited,
     ProviderRefusal,

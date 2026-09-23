@@ -20,6 +20,9 @@ from agentmesh.schemas.agent_spec import AgentSpec
 from agentmesh.tools.base import ToolSpec
 
 DEFAULT_MAX_TOKENS = 4096
+# A timeout is not a budget: an unbounded hang is a defect, not a policy
+# choice, so this has a default where cost ceilings deliberately do not.
+DEFAULT_TIMEOUT_S = 120.0
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,7 @@ class ResolvedModel:
     cost_per_1k_output_tokens: float = 0.0
     max_tokens: int = DEFAULT_MAX_TOKENS
     effort: str | None = None
+    timeout_s: float = DEFAULT_TIMEOUT_S
 
     def cost(self, usage: Usage) -> float:
         return (
@@ -52,6 +56,7 @@ def _resolve_key(key: str, models: dict[str, Any]) -> ResolvedModel:
         cost_per_1k_output_tokens=float(config.get("cost_per_1k_output_tokens", 0.0)),
         max_tokens=int(config.get("max_tokens", DEFAULT_MAX_TOKENS)),
         effort=config.get("effort"),
+        timeout_s=float(config.get("timeout_s", DEFAULT_TIMEOUT_S)),
     )
 
 
@@ -110,6 +115,7 @@ class ModelCall:
                 model=self.model.model,
                 max_tokens=self.model.max_tokens,
                 effort=self.model.effort,
+                timeout=self.model.timeout_s,
             )
 
         try:

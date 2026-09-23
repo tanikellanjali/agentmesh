@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resolution &#8212; AgentMesh</title>
+<meta name="description" content="How a request becomes a mesh: reuse an existing agent, adapt it into a new version, or create one.">
+<meta property="og:title" content="Resolution &#8212; AgentMesh">
+<meta property="og:description" content="How a request becomes a mesh: reuse an existing agent, adapt it into a new version, or create one.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="resolver.html" class="on">Resolution</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Resolution</h1>
+<p class="lede">How a request becomes a mesh: which agents to reuse, which to adapt, and what to
+create. This is the part that exists to stop teams growing duplicate agents.</p>
+
+<h2>Three decisions</h2>
+<p class="sub">A resolver is shown the request, the agents the caller may see, and every tool
+available. It prefers reuse over adaptation, and adaptation over creation &#8212; duplicated agents
+are the problem the system exists to prevent.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Decision</th><th>When</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td><b>Reuse</b></td><td>An existing agent already covers it</td><td>Runs as-is</td></tr>
+<tr><td><b>Adapt</b></td><td>An agent is close but needs a capability or tool</td><td>A <b>new version of that same agent</b></td></tr>
+<tr><td><b>Create</b></td><td>Nothing in the catalog covers it</td><td>A new agent, deterministic where possible</td></tr>
+</tbody></table></div>
+
+<h2>No fixed vocabulary</h2>
+<p>Capabilities are named from the request. Ask about translation and legal risk, and that is what
+comes back:</p>
+<pre><code>{
+  <span class="c-key">"capabilities"</span>: [<span class="c-str">"sql_analysis"</span>, <span class="c-str">"translation"</span>, <span class="c-str">"legal_risk_review"</span>],
+  <span class="c-key">"reuse"</span>: [<span class="c-str">"sql_analyzer_agent"</span>],
+  <span class="c-key">"adapt"</span>: [{<span class="c-key">"id"</span>: <span class="c-str">"report_agent"</span>, <span class="c-key">"version"</span>: 3,
+              <span class="c-key">"reason"</span>: <span class="c-str">"needs to summarise legal risk too"</span>}],
+  <span class="c-key">"create"</span>: [<span class="c-str">"translation_agent"</span>, <span class="c-str">"legal_risk_agent"</span>],
+  <span class="c-key">"blocked"</span>: [<span class="c-str">"finance_agent"</span>],
+  <span class="c-key">"source"</span>: <span class="c-str">"model"</span>
+}</code></pre>
+
+<h2>Adaptation versions, it does not fork</h2>
+<pre><code>adapted: report_agent v3   derived_from=report_agent@2
+         capabilities: ['report_generation', 'legal_summary']</code></pre>
+<p>One identity, one history. Every run records which version executed.</p>
+
+<h2>Denial blocks &#8212; it is never routed around</h2>
+<div class="note">An agent the caller can see but may not use is reported as <b>blocked</b>. The
+resolver does not invent a replacement, because that would turn every denial into a bypass. An agent
+they cannot even see is absent from the catalog entirely, so creating an equivalent is legitimate
+rather than an escape hatch. See <a href="governance.html">Governance</a>.</div>
+<p>A denied agent is also never shown to the planner, so nothing leaks about its existence.</p>
+
+<h2>The plan is validated, not trusted</h2>
+<ul class="tight">
+<li>Agent ids that are not in the catalog are dropped, and the reason is recorded</li>
+<li>Tool names that do not exist are stripped from created agents</li>
+<li>An agent named twice is only created once</li>
+<li><code>deterministic</code> is ignored unless the agent actually has tools</li>
+</ul>
+
+<h2>Resolvers</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Resolver</th><th>Uses</th><th>When</th></tr></thead>
+<tbody>
+<tr><td><code>model</code></td><td>A model plans the mesh</td><td>Default when a real provider is configured</td></tr>
+<tr><td><code>catalog</code></td><td>Term overlap against the catalog</td><td>Fallback; no model is called</td></tr>
+<tr><td><code>keyword</code></td><td>The original capability matcher</td><td>Legacy, still available</td></tr>
+</tbody></table></div>
+<pre><code>run_project(<span class="c-str">"data_ops"</span>, message, resolver=<span class="c-str">"model"</span>)</code></pre>
+<p>With no resolver named, AgentMesh auto-selects: a model plans when one is reachable, and the
+deterministic matcher runs when it is not. A mock provider cannot plan a mesh, so it is not asked to
+&#8212; and the plan's <code>source</code> field always says which path ran.</p>
+
+<div class="pager"><a href="concepts.html"><span>Previous</span>Core concepts</a><a href="tools.html" style="text-align:right"><span>Next</span>Tools &amp; MCP</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 CAPABILITY_KEYWORDS: dict[str, tuple[str, ...]] = {
     "request_intake": (
         "build",
@@ -149,7 +148,10 @@ def resolve_needs(message: str) -> NeedResolution:
 
     if not required_capabilities:
         required_capabilities = ["report_generation"]
-        reasoning = "No specific data operation keywords were detected; defaulted to report generation."
+        reasoning = (
+            "No specific data operation keywords were detected; "
+            "defaulted to report generation."
+        )
     else:
         reasoning = (
             "Detected request terms for "

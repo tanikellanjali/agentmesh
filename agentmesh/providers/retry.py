@@ -71,4 +71,7 @@ def call_with_retry(
                 raise
             sleep(policy.delay_for(attempt))
 
-    raise last_error  # pragma: no cover - loop always returns or raises
+    # Unreachable: the loop above always returns or raises.
+    if last_error is None:  # pragma: no cover
+        raise ProviderError("retry loop exited without a result")
+    raise last_error  # pragma: no cover

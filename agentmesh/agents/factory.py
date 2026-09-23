@@ -27,7 +27,7 @@ class MockAgent(BaseAgent):
 
 def build_agent(
     spec: AgentSpec,
-    broker: "ModelBroker | None" = None,
-    run_context: "RunContext | None" = None,
+    broker: ModelBroker | None = None,
+    run_context: RunContext | None = None,
 ) -> BaseAgent:
     return get_executor(spec.executor)(spec, broker, run_context)

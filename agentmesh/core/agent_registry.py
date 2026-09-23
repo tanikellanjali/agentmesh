@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import builtins
+
 from agentmesh.schemas.agent_spec import AgentSpec
 
 
 class AgentRegistry:
-    def __init__(self, agents: list[AgentSpec] | None = None) -> None:
+    def __init__(self, agents: builtins.list[AgentSpec] | None = None) -> None:
         self._agents: dict[str, AgentSpec] = {}
         for agent in agents or []:
             self.register(agent)
@@ -20,13 +22,13 @@ class AgentRegistry:
         except KeyError as exc:
             raise KeyError(f"Unknown agent id: {agent_id}") from exc
 
-    def list(self, include_disabled: bool = False) -> list[AgentSpec]:
+    def list(self, include_disabled: bool = False) -> builtins.list[AgentSpec]:
         agents = self._agents.values()
         if include_disabled:
             return sorted(agents, key=lambda agent: agent.id)
         return sorted((agent for agent in agents if agent.enabled), key=lambda agent: agent.id)
 
-    def by_capability(self, capability: str) -> list[AgentSpec]:
+    def by_capability(self, capability: str) -> builtins.list[AgentSpec]:
         return [
             agent
             for agent in self.list()

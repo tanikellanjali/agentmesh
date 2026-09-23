@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 
 class DataError(RuntimeError):
     """A data source could not be reached, bound, or queried."""
+
+
+DEFAULT_BATCH_SIZE = 1_000
+# A single oversized row can blow up a prompt even when the row count is small,
+# so results are capped by bytes as well as by rows.
+DEFAULT_MAX_RESULT_BYTES = 8_000_000
+
+
+class DataResultTooLarge(DataError):
+    """A result exceeded the byte ceiling before the row ceiling."""
 
 
 class DataBudgetExceeded(DataError):
@@ -28,7 +39,7 @@ class DataRequirement:
     optional: bool = False
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "DataRequirement":
+    def from_dict(cls, raw: dict[str, Any]) -> DataRequirement:
         return cls(
             name=raw["name"],
             kind=raw.get("kind", "table"),
@@ -71,7 +82,7 @@ class QueryResult:
         return len(self.rows)
 
     def as_dicts(self) -> list[dict[str, Any]]:
-        return [dict(zip(self.columns, row)) for row in self.rows]
+        return [dict(zip(self.columns, row, strict=False)) for row in self.rows]
 
     def summary(self) -> dict[str, Any]:
         """Compact form safe to hand a model - shape, not bulk."""
@@ -81,6 +92,21 @@ class QueryResult:
             "rows": self.as_dicts()[:50],
             "truncated": self.truncated or self.row_count > 50,
         }
+
+
+@dataclass(frozen=True)
+class RowBatch:
+    """One chunk of a streamed result."""
+
+    columns: list[str]
+    rows: list[tuple[Any, ...]]
+    offset: int = 0
+
+    def as_dicts(self) -> list[dict[str, Any]]:
+        return [dict(zip(self.columns, row, strict=False)) for row in self.rows]
+
+    def __len__(self) -> int:
+        return len(self.rows)
 
 
 @dataclass(frozen=True)
@@ -104,8 +130,21 @@ class DataSource(Protocol):
 
     def describe(self, ref: str) -> TableSchema: ...
 
-    def estimate(self, ref: str, query: str, params: dict[str, Any] | None = None) -> QueryEstimate: ...
+    def estimate(
+        self, ref: str, query: str, params: dict[str, Any] | None = None
+    ) -> QueryEstimate: ...
 
     def query(
         self, ref: str, query: str, params: dict[str, Any] | None = None, max_rows: int = 10_000
     ) -> QueryResult: ...
+
+    def iter_batches(
+        self,
+        ref: str,
+        query: str,
+        params: dict[str, Any] | None = None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+        max_rows: int | None = None,
+    ) -> Iterator[RowBatch]:
+        """Stream a result in chunks, never materialising the whole thing."""
+        ...

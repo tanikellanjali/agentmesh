@@ -46,7 +46,7 @@ class AccessDenied(PermissionError):
     replacement instead of silently routing around a denial.
     """
 
-    def __init__(self, decision: "Decision") -> None:
+    def __init__(self, decision: Decision) -> None:
         super().__init__(decision.reason)
         self.decision = decision
 
@@ -60,7 +60,7 @@ class Decision:
     reason: str = ""
     constraints: dict[str, Any] | None = None
 
-    def raise_if_denied(self) -> "Decision":
+    def raise_if_denied(self) -> Decision:
         if not self.allowed:
             raise AccessDenied(self)
         return self

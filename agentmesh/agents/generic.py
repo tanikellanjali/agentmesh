@@ -38,7 +38,9 @@ class GenericAgent(BaseAgent):
                 tools=tools,
                 max_iterations=int(self.spec.validation.get("max_tool_iterations", 6)),
                 on_tool=self._record_tool,
-                data_context=self.run_context.data_context_for(self.spec) if self.run_context else None,
+                data_context=(
+                    self.run_context.data_context_for(self.spec) if self.run_context else None
+                ),
             )
         except ProviderError as exc:
             output = self._error_output(str(exc), call.model.key)

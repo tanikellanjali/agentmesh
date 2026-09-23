@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from agentmesh.core.graph import build_levels, find_composer
+from agentmesh.core.graph import build_levels
 from agentmesh.providers.base import Usage
 from agentmesh.schemas.agent_spec import AgentSpec
 
@@ -44,9 +44,9 @@ def order_agents(agents: list[AgentSpec]) -> list[AgentSpec]:
 def run_agents(
     message: str,
     agents: list[AgentSpec],
-    broker: "ModelBroker | None" = None,
+    broker: ModelBroker | None = None,
     max_workers: int = 4,
-    run_context: "RunContext | None" = None,
+    run_context: RunContext | None = None,
     engine: Any = None,
 ) -> RunResult:
     """Run a resolved mesh. Defaults to the dependency-free native engine."""
@@ -61,7 +61,7 @@ def run_agents(
     )
 
 
-def _metrics(broker: "ModelBroker | None", agent_id: str) -> dict[str, Any]:
+def _metrics(broker: ModelBroker | None, agent_id: str) -> dict[str, Any]:
     from agentmesh.execution.base import agent_metrics
 
     return agent_metrics(broker, agent_id)

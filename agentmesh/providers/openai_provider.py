@@ -79,6 +79,7 @@ class OpenAIProvider(SingleShotMixin):
         model: str = DEFAULT_MODEL,
         max_tokens: int = 4096,
         effort: str | None = None,
+        timeout: float | None = None,
     ) -> Turn:
         openai = self._sdk
 
@@ -100,7 +101,7 @@ class OpenAIProvider(SingleShotMixin):
             ]
 
         try:
-            response = self._call(kwargs, max_tokens)
+            response = self._call(kwargs, max_tokens, timeout)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(f"OpenAI rejected the API key: {exc}") from exc
         except openai.PermissionDeniedError as exc:
@@ -137,12 +138,11 @@ class OpenAIProvider(SingleShotMixin):
             stop_reason=choice.finish_reason,
         )
 
-    def _call(self, kwargs: dict[str, Any], max_tokens: int):
+    def _call(self, kwargs: dict[str, Any], max_tokens: int, timeout: float | None = None):
         """Newer models require `max_completion_tokens`; older ones only accept
         `max_tokens`. Try the current name first and fall back once."""
+        client = self._client.with_options(timeout=timeout) if timeout else self._client
         try:
-            return self._client.chat.completions.create(
-                **kwargs, max_completion_tokens=max_tokens
-            )
+            return client.chat.completions.create(**kwargs, max_completion_tokens=max_tokens)
         except self._sdk.BadRequestError:
-            return self._client.chat.completions.create(**kwargs, max_tokens=max_tokens)
+            return client.chat.completions.create(**kwargs, max_tokens=max_tokens)

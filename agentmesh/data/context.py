@@ -1,18 +1,24 @@
 from __future__ import annotations
 
+import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
-from agentmesh.access.authorizer import Action, Authorizer, AllowAll, Resource, ResourceKind
+from agentmesh.access.authorizer import Action, AllowAll, Authorizer, Resource, ResourceKind
 from agentmesh.access.principal import ANONYMOUS, Principal
 from agentmesh.data.base import (
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_MAX_RESULT_BYTES,
     Binding,
     DataBudgetExceeded,
     DataError,
     DataRequirement,
+    DataResultTooLarge,
     DataSource,
     QueryEstimate,
     QueryResult,
+    RowBatch,
     TableSchema,
 )
 
@@ -25,7 +31,7 @@ class SourceRegistry:
     bindings: dict[str, Binding]
 
     @classmethod
-    def empty(cls) -> "SourceRegistry":
+    def empty(cls) -> SourceRegistry:
         return cls(sources={}, bindings={})
 
     def add_source(self, source: DataSource) -> None:
@@ -49,7 +55,7 @@ class SourceRegistry:
 class BoundTable:
     """One requirement, resolved to a real source and gated on every query."""
 
-    def __init__(self, context: "DataContext", requirement: DataRequirement) -> None:
+    def __init__(self, context: DataContext, requirement: DataRequirement) -> None:
         self._ctx = context
         self.requirement = requirement
         self.source, self.ref = context.registry.resolve(requirement.name)
@@ -64,7 +70,13 @@ class BoundTable:
     def estimate(self, sql: str, **params: Any) -> QueryEstimate:
         return self.source.estimate(self.ref, sql, params or None)
 
-    def query(self, sql: str, max_rows: int = 10_000, **params: Any) -> QueryResult:
+    def query(
+        self,
+        sql: str,
+        max_rows: int = 10_000,
+        max_bytes: int = DEFAULT_MAX_RESULT_BYTES,
+        **params: Any,
+    ) -> QueryResult:
         self._ctx.authorize(self.source)
         estimate = self.estimate(sql, **params)
         self._ctx.check_budget(estimate)
@@ -76,7 +88,55 @@ class BoundTable:
             raise
 
         self._ctx.record(self.source.name, self.ref, result, None)
+        if result.bytes_scanned > max_bytes:
+            raise DataResultTooLarge(
+                f"result is {result.bytes_scanned:,} bytes, over the "
+                f"{max_bytes:,} byte ceiling. Aggregate in SQL, or stream it."
+            )
         return result
+
+    def stream(
+        self,
+        sql: str,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+        max_rows: int | None = None,
+        **params: Any,
+    ) -> Iterator[RowBatch]:
+        """Iterate a large result in chunks.
+
+        Gated exactly like `query`, but nothing larger than one batch is ever
+        held in memory - so a table bigger than RAM can still be processed, as
+        long as the caller reduces as it goes rather than collecting batches.
+        """
+        self._ctx.authorize(self.source)
+        self._ctx.check_budget(self.estimate(sql, **params))
+
+        rows = 0
+        scanned = 0
+        started = time.perf_counter()
+        try:
+            for batch in self.source.iter_batches(
+                self.ref, sql, params or None, batch_size=batch_size, max_rows=max_rows
+            ):
+                rows += len(batch)
+                scanned += sum(len(str(cell)) for row in batch.rows for cell in row)
+                yield batch
+        except DataError as exc:
+            self._ctx.record(self.source.name, self.ref, None, str(exc))
+            raise
+
+        self._ctx.record(
+            self.source.name,
+            self.ref,
+            QueryResult(
+                columns=[],
+                rows=[],
+                bytes_scanned=scanned,
+                cost_usd=0.0,
+                duration_ms=(time.perf_counter() - started) * 1000,
+            ),
+            None,
+        )
 
 
 class DataContext:

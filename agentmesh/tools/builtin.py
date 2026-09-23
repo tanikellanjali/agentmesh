@@ -23,7 +23,8 @@ _SQL_RULES: list[tuple[str, str, str, str]] = [
      "SELECT * returns every column; name the columns you need."),
     ("leading_wildcard", "high", r"\bLIKE\s+'%",
      "LIKE with a leading wildcard cannot use an index and forces a scan."),
-    ("function_on_column", "high", r"\bWHERE\b[^;]*?\b(?:UPPER|LOWER|TRIM|CAST|DATE)\s*\(\s*[\w.]+\s*\)\s*(?:=|<|>|LIKE)",
+    ("function_on_column", "high",
+     r"\bWHERE\b[^;]*?\b(?:UPPER|LOWER|TRIM|CAST|DATE)\s*\(\s*[\w.]+\s*\)\s*(?:=|<|>|LIKE)",
      "Wrapping a column in a function in WHERE prevents index use."),
     ("not_in_subquery", "medium", r"\bNOT\s+IN\s*\(\s*SELECT\b",
      "NOT IN with a subquery mishandles NULLs; prefer NOT EXISTS."),
@@ -82,20 +83,20 @@ def sql_analyze(sql: str, dialect: str | None = None) -> dict[str, Any]:
             "message": "Unbounded SELECT; add LIMIT when exploring.",
         })
 
-    tables = sorted({t for t in re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_][\w.]*)", flat, re.I)})
+    tables = sorted(set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_][\w.]*)", flat, re.I)))
     joins = len(re.findall(r"\bJOIN\b", upper))
     order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     findings.sort(key=lambda f: order.get(f["severity"], 9))
 
     # Find the first real SQL verb rather than the first word, so surrounding
     # prose ("Review this query: SELECT ...") doesn't confuse the classification.
-    verb = re.search(
+    statement = re.search(
         r"\b(SELECT|INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|WITH)\b", upper
     )
 
     return {
         "dialect": dialect or "generic",
-        "statement_type": verb.group(1) if verb else "UNKNOWN",
+        "statement_type": statement.group(1) if statement else "UNKNOWN",
         "tables": tables,
         "join_count": joins,
         "finding_count": len(findings),
@@ -168,12 +169,16 @@ def pii_scan(text: str, kinds: list[str] | None = None) -> dict[str, Any]:
                 digits = re.sub(r"\D", "", value)
                 if not (13 <= len(digits) <= 19) or not _luhn(digits):
                     continue
-            masked = value[:2] + "*" * max(len(value) - 4, 0) + value[-2:] if len(value) > 4 else "****"
+            masked = (
+                value[:2] + "*" * max(len(value) - 4, 0) + value[-2:]
+                if len(value) > 4
+                else "****"
+            )
             matches.append({"kind": kind, "masked": masked, "start": m.start(), "end": m.end()})
 
     counts: dict[str, int] = {}
-    for m in matches:
-        counts[m["kind"]] = counts.get(m["kind"], 0) + 1
+    for match in matches:
+        counts[match["kind"]] = counts.get(match["kind"], 0) + 1
 
     severity = "none"
     if any(k in counts for k in ("ssn", "credit_card", "api_key")):
@@ -192,7 +197,10 @@ def pii_scan(text: str, kinds: list[str] | None = None) -> dict[str, Any]:
 
 @register_tool(
     name="redact_text",
-    description="Replace every PII match found by pii_scan with a placeholder, returning safe text.",
+    description=(
+        "Replace every PII match found by pii_scan with a placeholder, "
+        "returning safe text."
+    ),
     input_schema={
         "type": "object",
         "properties": {
@@ -220,14 +228,17 @@ def _infer(values: list[str]) -> str:
         return "empty"
     def is_int(v):
         try:
-            int(v); return True
+            int(v)
         except ValueError:
             return False
+        return True
+
     def is_float(v):
         try:
-            float(v); return True
+            float(v)
         except ValueError:
             return False
+        return True
     if all(is_int(v) for v in real):
         return "integer"
     if all(is_float(v) for v in real):
@@ -288,10 +299,15 @@ def _profile_with_duckdb(csv_text: str, delimiter: str) -> dict[str, Any] | None
         relation = f"read_csv_auto('{path}', delim='{delimiter}')"
         cursor = conn.execute(f"SUMMARIZE SELECT * FROM {relation}")
         names = [d[0] for d in cursor.description]
-        summary = [dict(zip(names, row)) for row in cursor.fetchall()]
+        summary = [dict(zip(names, row, strict=False)) for row in cursor.fetchall()]
 
-        total = conn.execute(f"SELECT COUNT(*) FROM {relation}").fetchone()[0]
-        distinct = conn.execute(f"SELECT COUNT(*) FROM (SELECT DISTINCT * FROM {relation})").fetchone()[0]
+        total_row = conn.execute(f"SELECT COUNT(*) FROM {relation}").fetchone()
+        distinct_row = conn.execute(
+            f"SELECT COUNT(*) FROM (SELECT DISTINCT * FROM {relation})"
+        ).fetchone()
+        if total_row is None or distinct_row is None:
+            return None
+        total, distinct = total_row[0], distinct_row[0]
     except Exception:
         return None
     finally:
@@ -318,7 +334,10 @@ def _profile_with_duckdb(csv_text: str, delimiter: str) -> dict[str, Any] | None
             column["stddev"] = _as_float(row.get("std"))
             column["quartiles"] = [_as_float(row.get(q)) for q in ("q25", "q50", "q75")]
         if null_pct:
-            issues.append(f"{column['name']}: {column['null_count']} missing value(s) ({column['null_pct']}%)")
+            issues.append(
+                f"{column['name']}: {column['null_count']} missing value(s) "
+                f"({column['null_pct']}%)"
+            )
         if column["distinct"] == 1:
             issues.append(f"{column['name']}: constant column")
         columns.append(column)
@@ -372,7 +391,7 @@ def _profile_with_stdlib(csv_text: str, delimiter: str) -> dict[str, Any]:
 
     columns: list[dict[str, Any]] = []
     issues: list[str] = []
-    for name in rows[0].keys():
+    for name in rows[0]:
         raw = [(r.get(name) or "").strip() for r in rows]
         blanks = sum(1 for v in raw if v == "")
         kind = _infer(raw)

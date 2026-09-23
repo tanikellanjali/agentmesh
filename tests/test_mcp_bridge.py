@@ -10,20 +10,20 @@ import pytest
 
 pytest.importorskip("mcp")
 
-from agentmesh.agents.factory import build_agent  # noqa: E402
-from agentmesh.agents.tool_loop import run_tool_loop  # noqa: E402
-from agentmesh.core.agent_synthesizer import synthesize_agent  # noqa: E402
-from agentmesh.core.model_router import ModelBroker  # noqa: E402
-from agentmesh.core.telemetry import RunRecorder  # noqa: E402
-from agentmesh.providers.base import SingleShotMixin, Turn, Usage  # noqa: E402
-from agentmesh.providers.retry import NO_RETRY  # noqa: E402
-from agentmesh.tools.base import ToolCall  # noqa: E402
-from agentmesh.tools.mcp_bridge import (  # noqa: E402
+from agentmesh.agents.factory import build_agent
+from agentmesh.agents.tool_loop import run_tool_loop
+from agentmesh.core.agent_synthesizer import synthesize_agent
+from agentmesh.core.model_router import ModelBroker
+from agentmesh.core.telemetry import RunRecorder
+from agentmesh.providers.base import SingleShotMixin, Turn, Usage
+from agentmesh.providers.retry import NO_RETRY
+from agentmesh.tools.base import ToolCall
+from agentmesh.tools.mcp_bridge import (
     McpServer,
     McpUnavailable,
     register_mcp_tools,
 )
-from agentmesh.tools.registry import _TOOLS, get_tool  # noqa: E402
+from agentmesh.tools.registry import _TOOLS, get_tool
 
 SERVER = Path(__file__).parent / "fixtures" / "mcp_inventory_server.py"
 
@@ -49,7 +49,7 @@ class ToolThenAnswer(SingleShotMixin):
         self.tool_name, self.arguments = tool_name, arguments
         self.used = False
 
-    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None, timeout=None):
         if not self.used and tools:
             self.used = True
             return Turn(

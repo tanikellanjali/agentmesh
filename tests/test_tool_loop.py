@@ -1,7 +1,5 @@
 import json
 
-import pytest
-
 from agentmesh.agents.factory import build_agent
 from agentmesh.agents.tool_loop import run_tool_loop
 from agentmesh.core.agent_synthesizer import synthesize_agent
@@ -23,7 +21,7 @@ class ScriptedProvider(SingleShotMixin):
         self.final_text = final_text
         self.seen = []
 
-    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None, timeout=None):
         self.seen.append({"messages": list(messages), "tools": [t.name for t in (tools or [])]})
         upcoming = self.script[0] if self.script else None
         if not tools and (upcoming is None or upcoming.get("calls")):

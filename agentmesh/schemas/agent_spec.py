@@ -26,3 +26,4 @@ class AgentSpec(BaseModel):
     fallback_agents: list[str] = Field(default_factory=list)
     troubleshooting: dict[str, Any] = Field(default_factory=dict)
     validation: dict[str, Any] = Field(default_factory=dict)
+    deterministic: dict[str, Any] = Field(default_factory=dict)

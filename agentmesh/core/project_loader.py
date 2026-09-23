@@ -4,7 +4,6 @@ from agentmesh.core.spec_loader import SpecLoadError, load_agent_specs, load_typ
 from agentmesh.schemas.agent_spec import AgentSpec
 from agentmesh.schemas.project_spec import ProjectSpec
 
-
 DEFAULT_SPEC_PACKS_DIR = Path("spec_packs")
 
 

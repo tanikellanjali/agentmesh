@@ -31,7 +31,7 @@ class CountingProvider(SingleShotMixin):
     def __init__(self, credentials=None):
         self.calls = 0
 
-    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None, timeout=None):
         self.calls += 1
         return Turn(
             text='{"summary": "s", "findings": [], "confidence": 0.9}',
@@ -150,7 +150,7 @@ def test_a_caller_set_budget_stops_the_run() -> None:
     provider = CountingProvider()
     agents = [spec_for(f"cap_{n}") for n in range(5)]
 
-    with pytest.raises(BudgetExceeded, match="0.0500"):
+    with pytest.raises(BudgetExceeded, match=r"0\.0500"):
         run_agents("go", agents, broker(recorder, provider), max_workers=1)
 
     # Two calls at $0.03 cross the ceiling; the rest never run.

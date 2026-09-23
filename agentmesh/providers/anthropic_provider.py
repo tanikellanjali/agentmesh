@@ -35,7 +35,10 @@ class AnthropicProvider(SingleShotMixin):
             import anthropic
         except ImportError as exc:  # pragma: no cover - depends on optional extra
             raise ProviderUnavailable(
-                "The anthropic SDK is not installed. Install with: pip install 'agentmesh[anthropic]'"
+
+                    "The anthropic SDK is not installed. Install with: pip install "
+                    "'agentmesh[anthropic]'"
+
             ) from exc
 
         self._sdk = anthropic
@@ -78,7 +81,9 @@ class AnthropicProvider(SingleShotMixin):
                         "name": call.name,
                         "input": call.arguments,
                     })
-                native.append({"role": "assistant", "content": blocks or [{"type": "text", "text": ""}]})
+                native.append(
+                    {"role": "assistant", "content": blocks or [{"type": "text", "text": ""}]}
+                )
             else:
                 native.append({"role": "user", "content": msg.content})
 
@@ -95,6 +100,7 @@ class AnthropicProvider(SingleShotMixin):
         model: str = DEFAULT_MODEL,
         max_tokens: int = 4096,
         effort: str | None = None,
+        timeout: float | None = None,
     ) -> Turn:
         anthropic = self._sdk
 
@@ -116,8 +122,10 @@ class AnthropicProvider(SingleShotMixin):
         if effort:
             request["output_config"] = {"effort": effort}
 
+        # A hung provider must not block its dependency level forever.
+        client = self._client.with_options(timeout=timeout) if timeout else self._client
         try:
-            response = self._client.messages.create(**request)
+            response = client.messages.create(**request)
         except anthropic.AuthenticationError as exc:
             raise ProviderAuthError(f"Anthropic rejected the API key: {exc}") from exc
         except anthropic.PermissionDeniedError as exc:

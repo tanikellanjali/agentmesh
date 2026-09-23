@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 
 from agentmesh.core.agent_registry import AgentRegistry
@@ -48,10 +49,8 @@ def match_capabilities(
                     missing.append(f"fallback:{fallback_agent_id}")
 
     if missing and not synthesize and "troubleshooting_agent" not in selected:
-        try:
+        with contextlib.suppress(KeyError):
             selected["troubleshooting_agent"] = registry.get("troubleshooting_agent")
-        except KeyError:
-            pass
 
     return CapabilityMatch(
         selected_agents=sorted(selected.values(), key=lambda agent: agent.id),

@@ -27,11 +27,11 @@ class NativeEngine:
         self,
         message: str,
         agents: list[AgentSpec],
-        broker: "ModelBroker | None" = None,
-        run_context: "RunContext | None" = None,
+        broker: ModelBroker | None = None,
+        run_context: RunContext | None = None,
         max_workers: int = 4,
         **options: Any,
-    ) -> "RunResult":
+    ) -> RunResult:
         from agentmesh.core.orchestrator import AgentExecution
 
         levels = build_levels(agents)
@@ -41,7 +41,7 @@ class NativeEngine:
         for index, level in enumerate(levels):
             snapshot = dict(context)
             outputs = self._run_level(message, level, snapshot, broker, run_context, max_workers)
-            for spec, output in zip(level, outputs):
+            for spec, output in zip(level, outputs, strict=True):
                 context[spec.id] = output
                 executions.append(
                     AgentExecution(

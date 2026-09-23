@@ -33,7 +33,10 @@ HELP_ENTRIES = [
     ),
     HelpEntry(
         command="agentmesh init-project",
-        description="Draft a new agent mesh from a user description, confirm it, then generate specs and starter Python code.",
+        description=(
+            "Draft a new agent mesh from a user description, confirm it, then generate specs "
+            "and starter Python code."
+        ),
         example='agentmesh init-project "Build a customer support triage mesh"',
     ),
     HelpEntry(
@@ -46,7 +49,10 @@ HELP_ENTRIES = [
     ),
     HelpEntry(
         command="agentmesh configure-models",
-        description="Prompt for model provider access, API keys, and local model preferences, then write `.env`.",
+        description=(
+            "Prompt for model provider access, API keys, and local model preferences, "
+            "then write `.env`."
+        ),
         example="agentmesh configure-models",
     ),
     HelpEntry(
@@ -56,7 +62,10 @@ HELP_ENTRIES = [
     ),
     HelpEntry(
         command="agentmesh list-models",
-        description="Show models configured for a project, provider availability, and estimated token costs.",
+        description=(
+            "Show models configured for a project, provider availability, and "
+            "estimated token costs."
+        ),
         example="agentmesh list-models --project data_ops",
     ),
     HelpEntry(

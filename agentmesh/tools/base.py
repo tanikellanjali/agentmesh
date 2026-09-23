@@ -29,7 +29,7 @@ class ToolSpec:
             "input_schema": self.input_schema,
         }
 
-    def call(self, arguments: dict[str, Any], context: Any = None) -> "ToolResult":
+    def call(self, arguments: dict[str, Any], context: Any = None) -> ToolResult:
         started = time.perf_counter()
         if self.needs_context and context is None:
             return ToolResult(

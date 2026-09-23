@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from agentmesh.tools.base import ToolCall, ToolSpec
 
@@ -35,7 +35,7 @@ class Usage:
     input_tokens: int = 0
     output_tokens: int = 0
 
-    def __add__(self, other: "Usage") -> "Usage":
+    def __add__(self, other: Usage) -> Usage:
         return Usage(
             input_tokens=self.input_tokens + other.input_tokens,
             output_tokens=self.output_tokens + other.output_tokens,
@@ -104,6 +104,7 @@ class Provider(Protocol):
         model: str,
         max_tokens: int = 4096,
         effort: str | None = None,
+        timeout: float | None = None,
     ) -> Turn: ...
 
     def complete(
@@ -114,6 +115,7 @@ class Provider(Protocol):
         model: str,
         max_tokens: int = 4096,
         effort: str | None = None,
+        timeout: float | None = None,
     ) -> Completion: ...
 
 
@@ -128,6 +130,7 @@ class SingleShotMixin:
         model: str,
         max_tokens: int = 4096,
         effort: str | None = None,
+        timeout: float | None = None,
     ) -> Completion:
         turn = self.converse(  # type: ignore[attr-defined]
             system=system,
@@ -136,6 +139,7 @@ class SingleShotMixin:
             model=model,
             max_tokens=max_tokens,
             effort=effort,
+            timeout=timeout,
         )
         return Completion(
             text=turn.text,

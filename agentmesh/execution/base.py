@@ -27,13 +27,13 @@ class ExecutionEngine(Protocol):
         self,
         message: str,
         agents: list[AgentSpec],
-        broker: "ModelBroker | None" = None,
-        run_context: "RunContext | None" = None,
+        broker: ModelBroker | None = None,
+        run_context: RunContext | None = None,
         **options: Any,
-    ) -> "RunResult": ...
+    ) -> RunResult: ...
 
 
-def agent_metrics(broker: "ModelBroker | None", agent_id: str) -> dict[str, Any]:
+def agent_metrics(broker: ModelBroker | None, agent_id: str) -> dict[str, Any]:
     recorder = getattr(broker, "recorder", None)
     if recorder is None:
         return {"usage": Usage(), "cost": 0.0, "llm_calls": 0, "retries": 0}
@@ -47,9 +47,9 @@ def agent_metrics(broker: "ModelBroker | None", agent_id: str) -> dict[str, Any]
 
 def assemble(
     agents: list[AgentSpec],
-    executions: list["AgentExecution"],
-    broker: "ModelBroker | None",
-) -> "RunResult":
+    executions: list[AgentExecution],
+    broker: ModelBroker | None,
+) -> RunResult:
     """Shared result assembly so every engine reports identically."""
     from agentmesh.core.orchestrator import RunResult
 

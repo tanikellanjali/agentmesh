@@ -27,7 +27,7 @@ class FlakyProvider(SingleShotMixin):
         self.error = error or ProviderTransientError("upstream hiccup")
         self.attempts = 0
 
-    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None, timeout=None):
         self.attempts += 1
         if self.remaining > 0:
             self.remaining -= 1

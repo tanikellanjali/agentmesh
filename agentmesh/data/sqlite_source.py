@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from agentmesh.data.base import (
+    DEFAULT_BATCH_SIZE,
     DataError,
     QueryEstimate,
     QueryResult,
+    RowBatch,
     TableSchema,
 )
 
@@ -139,6 +141,37 @@ class SqliteSource:
             self._conn.execute(f"CREATE TABLE {table} ({cols})")
             self._conn.executemany(f"INSERT INTO {table} VALUES ({placeholders})", rows)
 
+    def iter_batches(
+        self,
+        ref: str,
+        query: str,
+        params: dict[str, Any] | None = None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+        max_rows: int | None = None,
+    ):
+        """Stream results in chunks so a large table never lands in memory."""
+        self._guard(query)
+        rendered = query.replace("{table}", self._check_ref(ref))
+        try:
+            cursor = self._conn.execute(rendered, params or {})
+        except sqlite3.Error as exc:
+            raise DataError(f"query failed on '{self.name}': {exc}") from exc
+
+        columns = [d[0] for d in cursor.description] if cursor.description else []
+        offset = 0
+        while True:
+            rows = cursor.fetchmany(batch_size)
+            if not rows:
+                return
+            if max_rows is not None and offset + len(rows) > max_rows:
+                rows = rows[: max_rows - offset]
+            if not rows:
+                return
+            yield RowBatch(columns=columns, rows=[tuple(r) for r in rows], offset=offset)
+            offset += len(rows)
+            if max_rows is not None and offset >= max_rows:
+                return
+
 
 class CsvSource(SqliteSource):
     """CSV and TSV files, queryable with SQL. Zero-dependency fallback.
@@ -192,3 +225,15 @@ class CsvSource(SqliteSource):
         self, ref: str, query: str, params: dict[str, Any] | None = None, max_rows: int = 10_000
     ) -> QueryResult:
         return super().query(self._ensure(ref), query, params, max_rows)
+
+    def iter_batches(
+        self,
+        ref: str,
+        query: str,
+        params: dict[str, Any] | None = None,
+        batch_size: int = DEFAULT_BATCH_SIZE,
+        max_rows: int | None = None,
+    ):
+        yield from super().iter_batches(
+            self._ensure(ref), query, params, batch_size, max_rows
+        )

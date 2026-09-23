@@ -58,8 +58,8 @@ class LangGraphEngine:
     def build(
         self,
         agents: list[AgentSpec],
-        broker: "ModelBroker | None" = None,
-        run_context: "RunContext | None" = None,
+        broker: ModelBroker | None = None,
+        run_context: RunContext | None = None,
     ):
         StateGraph, START, END = self._require()
         graph = StateGraph(MeshState)
@@ -105,11 +105,11 @@ class LangGraphEngine:
         self,
         message: str,
         agents: list[AgentSpec],
-        broker: "ModelBroker | None" = None,
-        run_context: "RunContext | None" = None,
+        broker: ModelBroker | None = None,
+        run_context: RunContext | None = None,
         config: dict[str, Any] | None = None,
         **options: Any,
-    ) -> "RunResult":
+    ) -> RunResult:
         from agentmesh.core.orchestrator import AgentExecution
 
         compiled = self.compile(agents, broker, run_context)

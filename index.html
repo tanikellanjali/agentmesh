@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentMesh — spec-driven agent runtime</title>
+<meta name="description" content="An open-source Python runtime that turns a user question into a graph of agents. Agents are YAML, missing ones are synthesized at runtime, and every model call is costed.">
+<meta property="og:title" content="AgentMesh">
+<meta property="og:description" content="Spec-driven agent mesh runtime. YAML agents, dynamic synthesis, dependency graph, per-call cost telemetry.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕸️</text></svg>">
+<style>
+  :root{
+    --bg:#fbfbfd; --bg-raise:#ffffff; --bg-sunk:#f3f4f8;
+    --ink:#14161d; --ink-soft:#4a4f5e; --ink-faint:#787f91;
+    --line:#e3e5ec; --line-soft:#eceef4;
+    --accent:#5457d6; --accent-soft:#ececfb; --accent-ink:#3d40b8;
+    --ok:#12805c; --warn:#a1620a;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    --radius:10px; --maxw:1080px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f14; --bg-raise:#14171f; --bg-sunk:#0a0c10;
+      --ink:#e9ebf2; --ink-soft:#a6adbe; --ink-faint:#767e91;
+      --line:#242833; --line-soft:#1c202a;
+      --accent:#8b8df5; --accent-soft:#1c1d38; --accent-ink:#a3a5ff;
+      --ok:#3dd39e; --warn:#e0a458;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:70px}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-ink);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.875em}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);
+      backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;gap:20px;height:60px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:650;color:var(--ink);letter-spacing:-.01em}
+  .brand:hover{text-decoration:none}
+  .pill{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:99px;
+        background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--line)}
+  .nav-links{margin-left:auto;display:flex;gap:22px;align-items:center}
+  .nav-links a{color:var(--ink-soft);font-size:14px}
+  .nav-links a:hover{color:var(--ink);text-decoration:none}
+  @media(max-width:720px){.nav-links a:not(.gh){display:none}}
+
+  /* hero */
+  header{padding:76px 0 60px;border-bottom:1px solid var(--line)}
+  h1{font-size:clamp(34px,5.5vw,52px);line-height:1.08;letter-spacing:-.03em;margin:0 0 18px;font-weight:680}
+  h1 .accent{color:var(--accent)}
+  .lede{font-size:clamp(16px,2vw,19px);color:var(--ink-soft);max-width:60ch;margin:0 0 30px}
+  .flowline{font-family:var(--mono);font-size:13px;color:var(--ink-faint);
+            background:var(--bg-sunk);border:1px solid var(--line);border-radius:var(--radius);
+            padding:12px 16px;margin:0 0 30px;overflow-x:auto;white-space:nowrap}
+  .flowline b{color:var(--accent-ink);font-weight:500}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;
+       font-size:14px;font-weight:550;border:1px solid var(--line);background:var(--bg-raise);color:var(--ink)}
+  .btn:hover{text-decoration:none;border-color:var(--ink-faint)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.08);border-color:var(--accent)}
+  .install{font-family:var(--mono);font-size:13.5px;background:var(--bg-sunk);
+           border:1px solid var(--line);border-radius:8px;padding:10px 16px;color:var(--ink-soft)}
+  .install b{color:var(--ink);font-weight:500}
+
+  /* sections */
+  section{padding:64px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:clamp(23px,3vw,29px);letter-spacing:-.02em;margin:0 0 10px;font-weight:650}
+  .sub{color:var(--ink-soft);max-width:64ch;margin:0 0 34px}
+  h3{font-size:16px;margin:0 0 8px;font-weight:620;letter-spacing:-.01em}
+
+  /* feature grid */
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(272px,1fr))}
+  .card{background:var(--bg-raise);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+  .card p{margin:0;color:var(--ink-soft);font-size:14.5px;line-height:1.6}
+  .card .ico{width:30px;height:30px;border-radius:7px;background:var(--accent-soft);
+             display:grid;place-items:center;margin-bottom:12px;font-size:15px}
+
+  /* code */
+  pre{background:var(--bg-sunk);border:1px solid var(--line);border-radius:var(--radius);
+      padding:16px 18px;overflow-x:auto;margin:0;font-size:13px;line-height:1.7}
+  pre code{font-size:13px}
+  .c-key{color:var(--accent-ink)} .c-str{color:var(--ok)}
+  .c-com{color:var(--ink-faint);font-style:italic} .c-fn{color:var(--warn)}
+  .steps{display:grid;gap:22px}
+  .step{display:grid;grid-template-columns:30px 1fr;gap:16px;align-items:start}
+  .num{width:26px;height:26px;border-radius:99px;background:var(--accent-soft);color:var(--accent-ink);
+       display:grid;place-items:center;font-family:var(--mono);font-size:12px;font-weight:600;margin-top:2px}
+  .step-body{min-width:0}
+
+  .two{display:grid;gap:26px;grid-template-columns:1fr 1fr}
+  @media(max-width:820px){.two{grid-template-columns:1fr}.step{grid-template-columns:26px 1fr;gap:12px}}
+
+  /* diagram */
+  .diagram{background:var(--bg-raise);border:1px solid var(--line);border-radius:var(--radius);
+           padding:26px;overflow-x:auto}
+  .diagram svg{display:block;min-width:520px;width:100%;height:auto}
+
+  /* table */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-raise)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:440px}
+  th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--line-soft)}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);font-weight:600}
+  tr:last-child td{border-bottom:none}
+  .yes{color:var(--ok);font-weight:600} .no{color:var(--ink-faint)}
+
+  .note{border-left:2px solid var(--accent);background:var(--accent-soft);
+        padding:14px 18px;border-radius:0 8px 8px 0;font-size:14.5px;color:var(--ink-soft);margin-top:26px}
+  .note b{color:var(--ink)}
+
+  footer{padding:44px 0 56px;color:var(--ink-faint);font-size:14px}
+  .foot{display:flex;gap:26px;flex-wrap:wrap;align-items:center}
+  .foot a{color:var(--ink-soft)}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap nav-in">
+  <a class="brand" href="#top">🕸️ AgentMesh <span class="pill">v0.1.0</span></a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#start">Quick start</a>
+    <a href="#graph">Graph</a>
+    <a href="#telemetry">Telemetry</a>
+    <a href="#status">Status</a>
+    <a class="gh btn" href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  </div>
+</div></nav>
+
+<header id="top"><div class="wrap">
+  <h1>A user question in.<br>A graph of <span class="accent">agents</span> out.</h1>
+  <p class="lede">AgentMesh is an open-source Python runtime for building internal agent meshes.
+  Agents are YAML specs, not classes. Capabilities nothing covers are synthesized at runtime.
+  Every model call is retried, costed, and logged.</p>
+  <div class="flowline">user request → required capabilities → <b>matched or synthesized agents</b> → dependency graph → structured output</div>
+  <div class="cta">
+    <a class="btn primary" href="#start">Get started</a>
+    <a class="btn" href="https://github.com/tanikellanjali/agentmesh">View source</a>
+    <span class="install">$ <b>pip install -e ".[dev,providers]"</b></span>
+  </div>
+</div></header>
+
+<section id="features"><div class="wrap">
+  <h2>What it does</h2>
+  <p class="sub">The runtime is the product. The CLI and the FastAPI wrapper are two doors into the same
+  <code>run_project()</code> call, so they cannot drift apart.</p>
+  <div class="grid">
+    <div class="card"><div class="ico">🧬</div><h3>Agents that don't exist yet</h3>
+      <p>When a request needs a capability no registered agent covers, AgentMesh writes an agent for it and runs it. Ephemeral by default — saved only when you ask.</p></div>
+    <div class="card"><div class="ico">🕸️</div><h3>A real dependency graph</h3>
+      <p>Agents declare <code>depends_on</code> and run in topological levels. Independent agents in a level run concurrently. Cycles fail at build time, not mid-run.</p></div>
+    <div class="card"><div class="ico">🔌</div><h3>Bring your own model</h3>
+      <p>Claude and OpenAI adapters behind one provider interface, plus a deterministic mock for offline work. Your keys, your choice of model, per-agent routing.</p></div>
+    <div class="card"><div class="ico">🔁</div><h3>Retries that know better</h3>
+      <p>Exponential backoff with jitter on 5xx, connection errors, and rate limits. Auth failures and refusals fail immediately instead of burning attempts.</p></div>
+    <div class="card"><div class="ico">📊</div><h3>Every call accounted for</h3>
+      <p>Tokens, cost, attempts, duration, and outcome recorded per model call — not per agent. Human tables or one JSON object per call.</p></div>
+    <div class="card"><div class="ico">💸</div><h3>Your budget, your call</h3>
+      <p>There is no default spending cap. AgentMesh will not pick one for you. Set <code>--max-cost</code> when you want a ceiling, and the run stops at it.</p></div>
+  </div>
+</div></section>
+
+<section id="start"><div class="wrap">
+  <h2>Quick start</h2>
+  <p class="sub">Python 3.11+. Runs offline with no credentials at all.</p>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><div class="step-body">
+      <h3>Install</h3>
+      <pre><code>git clone https://github.com/tanikellanjali/agentmesh
+cd agentmesh
+pip install -e <span class="c-str">".[dev]"</span>
+
+<span class="c-com"># the providers you intend to use</span>
+pip install -e <span class="c-str">".[anthropic]"</span>   <span class="c-com"># Claude</span>
+pip install -e <span class="c-str">".[openai]"</span>      <span class="c-com"># OpenAI</span></code></pre></div></div>
+
+    <div class="step"><div class="num">2</div><div class="step-body">
+      <h3>Run it offline, right now</h3>
+      <pre><code>agentmesh run --project data_ops <span class="c-str">"Review this SQL query for quality risks"</span> --provider mock</code></pre></div></div>
+
+    <div class="step"><div class="num">3</div><div class="step-body">
+      <h3>Add your own credentials</h3>
+      <pre><code>agentmesh configure-models      <span class="c-com"># prompts for keys, merges into .env</span>
+agentmesh check-models --live   <span class="c-com"># proves the keys actually work</span>
+
+agentmesh run --project data_ops <span class="c-str">"Review this SQL query"</span> --max-cost 0.50</code></pre>
+      <div class="note"><b>No silent fallbacks.</b> If no provider is usable, the run fails with an
+      explicit error naming every attempt. It will never hand you placeholder output dressed up as a real answer.</div>
+    </div></div>
+  </div>
+</div></section>
+
+<section id="agents"><div class="wrap">
+  <h2>Agents are YAML</h2>
+  <p class="sub">Most agents need no Python at all. A spec with an output contract runs on the generic
+  model-backed executor — the spec <em>is</em> the prompt.</p>
+  <div class="two">
+    <div>
+      <h3>Declare one</h3>
+      <pre><code><span class="c-key">id</span>: sql_analyzer_agent
+<span class="c-key">name</span>: SQL Analyzer Agent
+<span class="c-key">capabilities</span>:
+  - sql_analysis
+  - query_review
+<span class="c-key">depends_on</span>:
+  - ingestion_agent
+<span class="c-key">output_contract</span>:
+  <span class="c-key">format</span>: json
+  <span class="c-key">required_fields</span>:
+    - findings
+    - risk_level
+    - confidence
+<span class="c-key">models</span>:
+  <span class="c-key">default</span>: anthropic/claude-opus-5
+  <span class="c-key">fallback</span>:
+    - openai/gpt-4.1-mini</code></pre>
+    </div>
+    <div>
+      <h3>Or let the mesh write it</h3>
+      <pre><code><span class="c-com"># needs a capability nothing covers?
+# AgentMesh synthesizes an agent and runs it</span>
+$ agentmesh run -p data_ops <span class="c-str">"Research the options"</span>
+
+┃ ID                     ┃ Origin      ┃ Level ┃
+│ domain_research_agent  │ synthesized │   0   │
+│ option_generation_...  │ synthesized │   0   │
+│ report_agent           │ spec        │   1   │
+
+<span class="c-com"># ephemeral — gone when the run ends.
+# keep the good ones:</span>
+$ agentmesh run -p data_ops <span class="c-str">"..."</span> --save-agents</code></pre>
+      <p style="color:var(--ink-soft);font-size:14.5px;margin-top:14px">Saved agents become ordinary
+      specs on disk, so the next run loads them and synthesizes nothing.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="graph"><div class="wrap">
+  <h2>Execution is a graph, not a list</h2>
+  <p class="sub">Agents run in dependency levels. An agent with the <code>response_composition</code>
+  capability implicitly waits for everyone else and writes the final answer — so the response comes from
+  the composer, not from whichever agent happened to finish last.</p>
+  <div class="diagram">
+    <svg viewBox="0 0 760 260" role="img" aria-label="Request fans out to two parallel agents, then converges on a report agent">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" fill="var(--ink-faint)"/>
+        </marker>
+      </defs>
+      <g font-family="var(--mono)" font-size="12.5">
+        <rect x="6" y="104" width="128" height="52" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
+        <text x="70" y="126" text-anchor="middle" fill="var(--ink)">request</text>
+        <text x="70" y="143" text-anchor="middle" fill="var(--ink-faint)" font-size="11">capabilities</text>
+
+        <rect x="230" y="34" width="180" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+        <text x="320" y="57" text-anchor="middle" fill="var(--accent-ink)">sql_analyzer_agent</text>
+        <text x="320" y="74" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0</text>
+
+        <rect x="230" y="170" width="180" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+        <text x="320" y="193" text-anchor="middle" fill="var(--accent-ink)">data_quality_agent</text>
+        <text x="320" y="210" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0</text>
+
+        <rect x="506" y="104" width="172" height="56" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
+        <text x="592" y="127" text-anchor="middle" fill="var(--ink)">report_agent</text>
+        <text x="592" y="144" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 1 · composer</text>
+
+        <g stroke="var(--ink-faint)" stroke-width="1.4" fill="none" marker-end="url(#ar)">
+          <path d="M134,122 C182,122 182,62 224,62"/>
+          <path d="M134,138 C182,138 182,198 224,198"/>
+          <path d="M410,62 C452,62 452,122 500,122"/>
+          <path d="M410,198 C452,198 452,138 500,138"/>
+        </g>
+        <text x="320" y="128" text-anchor="middle" fill="var(--ink-faint)" font-size="11">run concurrently</text>
+        <text x="592" y="186" text-anchor="middle" fill="var(--ink-faint)" font-size="11">→ final response</text>
+      </g>
+    </svg>
+  </div>
+</div></section>
+
+<section id="telemetry"><div class="wrap">
+  <h2>You can see what it cost</h2>
+  <p class="sub">Every model call is recorded — not every agent. An agent that retried three times shows
+  three attempts, and the tokens each one burned.</p>
+  <div class="two">
+    <div>
+      <h3>In the terminal</h3>
+      <pre><code>┃ Agent              ┃ Calls ┃ Retries ┃  In ┃ Out ┃ Cost $ ┃
+│ data_quality_agent │     1 │       0 │  23 │  30 │ 0.0009 │
+│ sql_analyzer_agent │     1 │       0 │  23 │  30 │ 0.0009 │
+│ report_agent       │     1 │       0 │ 208 │  30 │ 0.0018 │
+│ <b>total</b>              │     3 │       0 │ 254 │  90 │ <b>0.0035</b> │</code></pre>
+      <p style="color:var(--ink-soft);font-size:14.5px;margin-top:14px">The composer reads 208 input
+      tokens against 23 for the level-0 agents — because it actually receives their output.</p>
+    </div>
+    <div>
+      <h3>Or as JSON, one line per call</h3>
+      <pre><code>{<span class="c-key">"run_id"</span>: <span class="c-str">"2467afcf710e"</span>,
+ <span class="c-key">"agent_id"</span>: <span class="c-str">"sql_analyzer_agent"</span>,
+ <span class="c-key">"model_key"</span>: <span class="c-str">"anthropic/claude-opus-5"</span>,
+ <span class="c-key">"attempts"</span>: 1,
+ <span class="c-key">"outcome"</span>: <span class="c-str">"ok"</span>,
+ <span class="c-key">"input_tokens"</span>: 8,
+ <span class="c-key">"output_tokens"</span>: 30,
+ <span class="c-key">"cost"</span>: 0.00079,
+ <span class="c-key">"duration_ms"</span>: 812.4,
+ <span class="c-key">"retry_errors"</span>: []}</code></pre>
+      <p style="color:var(--ink-soft);font-size:14.5px;margin-top:14px">
+        <code>agentmesh run ... --json-logs --log-level INFO</code></p>
+    </div>
+  </div>
+</div></section>
+
+<section id="status"><div class="wrap">
+  <h2>Honest status</h2>
+  <p class="sub">v0.1.0, 81 passing tests. This is a young project and the table below is the real
+  state of it, not a roadmap dressed as a changelog.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Capability</th><th>State</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>YAML specs, registry, capability matching</td><td class="yes">Working</td><td>Strict validation; typo'd specs fail loudly</td></tr>
+      <tr><td>Dynamic agent synthesis</td><td class="yes">Working</td><td>Deterministic — not yet model-written</td></tr>
+      <tr><td>Dependency graph + concurrency</td><td class="yes">Working</td><td>Topological levels, cycle detection</td></tr>
+      <tr><td>Claude &amp; OpenAI providers</td><td class="yes">Working</td><td>OpenAI adapter not yet verified against the live API</td></tr>
+      <tr><td>Retries, telemetry, cost accounting</td><td class="yes">Working</td><td>Per call, with attempt counts</td></tr>
+      <tr><td>Opt-in budget caps</td><td class="yes">Working</td><td>Concurrent levels can overshoot; <code>--max-workers 1</code> is strict</td></tr>
+      <tr><td>Per-call timeouts</td><td class="no">Not yet</td><td>A hung provider blocks its level</td></tr>
+      <tr><td>Run logs under <code>.runs/</code></td><td class="no">Not yet</td><td>Telemetry is structured, persistence isn't wired</td></tr>
+      <tr><td>API authentication</td><td class="no">Not yet</td><td>Do not expose the FastAPI app publicly</td></tr>
+      <tr><td>Ollama / local provider</td><td class="no">Not yet</td><td><code>local</code> is currently an alias for the mock</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>Contributions welcome.</b> The gaps above are the best places to start —
+  see <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>
+  and the <a href="https://github.com/tanikellanjali/agentmesh/blob/main/docs/roadmap.md">roadmap</a>.</div>
+</div></section>
+
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/docs/roadmap.md">Roadmap</a>
+</div></footer>
+
+</body>
+</html>

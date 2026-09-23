@@ -27,6 +27,26 @@ are synthesized at runtime. Every model call and every query is costed.</p>
   <a class="btn" href="https://github.com/tanikellanjali/agentmesh">View source</a>
   <span class="install">$ <b>pip install -e ".[dev,all]"</b></span>
 </div>
+
+<div class="terminal">
+  <div class="terminal-bar"><i></i><i></i><i></i><span>agentmesh run</span></div>
+<pre><code><span class="prompt">$</span> agentmesh run -p grocery <span class="c-str">"which supplier has the best margin?"</span>
+
+<span class="dim">Planned by: model</span>
+&#9475; Agent                &#9475; Origin      &#9475; Executor      &#9475; Level &#9475;
+&#9474; ledger_loader_agent  &#9474; reuse       &#9474; deterministic &#9474;   0   &#9474;
+&#9474; margin_agent         &#9474; create      &#9474; deterministic &#9474;   0   &#9474;
+&#9474; report_agent         &#9474; adapt (v3)  &#9474; generic       &#9474;   1   &#9474;
+
+&#9475; Agent                &#9475; Calls &#9475; Retries &#9475;  In &#9475; Out &#9475; Cost $ &#9475;
+&#9474; ledger_loader_agent  &#9474;     0 &#9474;       0 &#9474;   0 &#9474;   0 &#9474; 0.0000 &#9474;
+&#9474; margin_agent         &#9474;     0 &#9474;       0 &#9474;   0 &#9474;   0 &#9474; 0.0000 &#9474;
+&#9474; report_agent         &#9474;     1 &#9474;       0 &#9474; 214 &#9474;  96 &#9474; 0.0035 &#9474;
+&#9474; <span class="good">total</span>                &#9474;     1 &#9474;       0 &#9474; 214 &#9474;  96 &#9474; <span class="good">0.0035</span> &#9474;
+
+<span class="dim">Final response from: report_agent</span>
+<span class="good">DairyCo</span> leads on margin at <span class="good">$193.00</span>, ahead of FreshFarms ($173.20).</code></pre>
+</div>
 </div></header>
 
 <div class="wrap" style="padding:52px 0 20px">
@@ -117,7 +137,13 @@ agentmesh run --project data_ops \
 attempt. AgentMesh will never hand you placeholder output dressed up as a real answer.</div>
 
 <h2>Where it stands</h2>
-<p class="sub">v0.1.0, <b>215 passing tests</b>, lint and type clean, CI on Python 3.11&#8211;3.13.</p>
+<p class="sub">v0.1.0 &#8212; open source, MIT licensed.</p>
+<div class="stats">
+  <div class="stat"><b>215</b><span>passing tests</span></div>
+  <div class="stat"><b>3.11&#8211;3.13</b><span>Python, in CI</span></div>
+  <div class="stat"><b>0</b><span>required dependencies beyond core</span></div>
+  <div class="stat"><b>MIT</b><span>licence</span></div>
+</div>
 <div class="cta" style="margin-bottom:52px">
   <a class="btn primary" href="getting-started.html">Read the docs</a>
   <a class="btn" href="roadmap.html">See the roadmap</a>

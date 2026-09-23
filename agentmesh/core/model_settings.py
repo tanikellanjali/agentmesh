@@ -6,12 +6,23 @@ from pathlib import Path
 from agentmesh.core.project_loader import DEFAULT_SPEC_PACKS_DIR, load_project
 from agentmesh.core.spec_loader import read_yaml
 
-
 PROVIDER_ENV_KEYS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "google": "GOOGLE_API_KEY",
 }
+
+SETTING_KEYS = (
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GOOGLE_API_KEY",
+    "AGENTMESH_PROVIDER",
+    "AGENTMESH_MODEL",
+    "LOCAL_MODEL_PROVIDER",
+    "OLLAMA_BASE_URL",
+    "DEFAULT_LOCAL_MODEL",
+    "AGENTMESH_RUN_DIR",
+)
 
 
 def load_env_file(path: Path = Path(".env")) -> dict[str, str]:
@@ -29,20 +40,15 @@ def load_env_file(path: Path = Path(".env")) -> dict[str, str]:
 
 
 def configured_env(path: Path = Path(".env")) -> dict[str, str]:
-    values = load_env_file(path)
-    merged = dict(values)
+    merged = load_env_file(path)
     for key, value in os.environ.items():
-        if key.endswith("_API_KEY") or key in {
-            "LOCAL_MODEL_PROVIDER",
-            "OLLAMA_BASE_URL",
-            "DEFAULT_LOCAL_MODEL",
-        }:
+        if key.endswith("_API_KEY") or key in SETTING_KEYS:
             merged[key] = value
     return merged
 
 
 def provider_available(provider: str, env_values: dict[str, str]) -> bool:
-    if provider == "local":
+    if provider in {"mock", "local"}:
         return True
     if provider == "ollama":
         return bool(env_values.get("OLLAMA_BASE_URL"))
@@ -58,11 +64,12 @@ def list_project_models(project_id: str, spec_packs_dir=DEFAULT_SPEC_PACKS_DIR) 
     env_values = configured_env()
 
     rows: list[dict[str, object]] = []
-    for model_id, config in sorted(models.items()):
-        provider = config.get("provider", model_id.split("/", 1)[0])
+    for key, config in sorted(models.items()):
+        provider = config.get("provider", key.split("/", 1)[0])
         rows.append(
             {
-                "model_id": model_id,
+                "key": key,
+                "model_id": config.get("model", key.split("/", 1)[-1]),
                 "provider": provider,
                 "available": provider_available(provider, env_values),
                 "cost_per_1k_input_tokens": config.get("cost_per_1k_input_tokens", 0),
@@ -73,14 +80,15 @@ def list_project_models(project_id: str, spec_packs_dir=DEFAULT_SPEC_PACKS_DIR) 
 
 
 def write_env_file(values: dict[str, str], path: Path = Path(".env")) -> None:
-    ordered_keys = [
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "GOOGLE_API_KEY",
-        "LOCAL_MODEL_PROVIDER",
-        "OLLAMA_BASE_URL",
-        "DEFAULT_LOCAL_MODEL",
-        "AGENTMESH_RUN_DIR",
-    ]
-    lines = [f"{key}={values.get(key, '')}" for key in ordered_keys]
+    """Merge settings into `.env`, preserving keys already there.
+
+    Only keys explicitly present in `values` are changed, so re-running setup
+    to add one provider never wipes another provider's credentials.
+    """
+    existing = load_env_file(path)
+    merged = {**existing, **{k: v for k, v in values.items() if v is not None}}
+
+    ordered = [key for key in SETTING_KEYS if key in merged]
+    extras = [key for key in merged if key not in SETTING_KEYS]
+    lines = [f"{key}={merged[key]}" for key in ordered + sorted(extras)]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

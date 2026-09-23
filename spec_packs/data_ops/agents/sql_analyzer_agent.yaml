@@ -22,10 +22,10 @@ output_contract:
     - suggested_changes
     - confidence
 models:
-  default: local/gemma-3-4b
-  thinking: anthropic/claude-sonnet
+  default: anthropic/claude-opus-5
+  thinking: anthropic/claude-opus-5
   fallback:
-    - google/gemini-flash
+    - openai/gpt-4.1-mini
 tools:
   - agentflow_sql_analyzer
 fallback_agents: []

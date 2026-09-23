@@ -30,11 +30,23 @@ def test_match_capabilities_selects_enabled_agents() -> None:
     assert match.missing_capabilities == []
 
 
-def test_match_capabilities_adds_troubleshooting_for_missing_capability() -> None:
+def test_match_capabilities_synthesizes_agent_for_missing_capability() -> None:
     loaded = load_project("data_ops")
     registry = AgentRegistry(loaded.agents)
 
     match = match_capabilities(["unknown_capability"], registry)
 
+    assert [agent.id for agent in match.selected_agents] == ["unknown_capability_agent"]
+    assert [agent.id for agent in match.synthesized_agents] == ["unknown_capability_agent"]
+    assert match.missing_capabilities == ["unknown_capability"]
+
+
+def test_match_capabilities_falls_back_to_troubleshooting_without_synthesis() -> None:
+    loaded = load_project("data_ops")
+    registry = AgentRegistry(loaded.agents)
+
+    match = match_capabilities(["unknown_capability"], registry, synthesize=False)
+
     assert [agent.id for agent in match.selected_agents] == ["troubleshooting_agent"]
+    assert match.synthesized_agents == []
     assert match.missing_capabilities == ["unknown_capability"]

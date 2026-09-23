@@ -45,6 +45,7 @@ def test_generated_project_can_run_with_generic_executor(tmp_path) -> None:
         "support_triage",
         "Create a triage workflow and recommendation for a refund request.",
         spec_packs_dir,
+        provider="mock",
     )
 
     assert result.run.selected_agents == [

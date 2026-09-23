@@ -5,6 +5,9 @@ from agentmesh import __version__
 from agentmesh.core.project_loader import list_projects, load_project
 from agentmesh.core.runtime import run_project
 from agentmesh.core.spec_loader import SpecLoadError
+from agentmesh.core.telemetry import BudgetExceeded
+from agentmesh.providers import ProviderError
+from agentmesh.providers.retry import RetryPolicy
 
 app = FastAPI(title="AgentMesh API", version=__version__)
 
@@ -12,6 +15,12 @@ app = FastAPI(title="AgentMesh API", version=__version__)
 class RunRequest(BaseModel):
     message: str
     user_id: str = "default_user"
+    synthesize: bool = True
+    store_agents: bool = False
+    provider: str | None = None
+    model: str | None = None
+    max_attempts: int = 3
+    max_cost: float | None = None
 
 
 @app.get("/health")
@@ -56,9 +65,22 @@ def project_agents(project_id: str) -> list[dict[str, object]]:
 @app.post("/projects/{project_id}/run")
 def run_project_endpoint(project_id: str, request: RunRequest) -> dict[str, object]:
     try:
-        result = run_project(project_id, request.message)
+        result = run_project(
+            project_id,
+            request.message,
+            synthesize=request.synthesize,
+            store_agents=request.store_agents,
+            provider=request.provider,
+            model=request.model,
+            max_cost=request.max_cost,
+            retry_policy=RetryPolicy(max_attempts=request.max_attempts),
+        )
     except SpecLoadError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BudgetExceeded as exc:
+        raise HTTPException(status_code=402, detail=str(exc)) from exc
+    except ProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     response = result.as_dict()
     response["user_id"] = request.user_id

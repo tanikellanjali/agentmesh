@@ -20,9 +20,9 @@ output_contract:
     - recommendations
     - risks
 models:
-  default: local/gemma-3-4b
+  default: anthropic/claude-opus-5
   fallback:
-    - google/gemini-flash
+    - openai/gpt-4.1-mini
 tools:
   - agentflow_report_generator
 fallback_agents: []

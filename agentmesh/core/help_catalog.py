@@ -38,13 +38,21 @@ HELP_ENTRIES = [
     ),
     HelpEntry(
         command="agentmesh run",
-        description="Run the internal pipeline: resolve needs, select agents, execute agent code, print outputs.",
-        example='agentmesh run --project data_ops "Review this SQL query for quality risks"',
+        description=(
+            "Run the mesh: resolve needs, select or synthesize agents, execute the "
+            "dependency graph, and report tokens, cost, and retries per agent."
+        ),
+        example='agentmesh run --project data_ops "Review this SQL query" --max-cost 0.50',
     ),
     HelpEntry(
         command="agentmesh configure-models",
         description="Prompt for model provider access, API keys, and local model preferences, then write `.env`.",
         example="agentmesh configure-models",
+    ),
+    HelpEntry(
+        command="agentmesh check-models",
+        description="Verify provider credentials resolve; --live sends one tiny real request each.",
+        example="agentmesh check-models --project data_ops --live",
     ),
     HelpEntry(
         command="agentmesh list-models",

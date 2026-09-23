@@ -5,6 +5,7 @@ def test_runtime_runs_agents_internally_for_data_ops_request() -> None:
     result = run_project(
         "data_ops",
         "Review this SQL query for performance, missing values, and summarize the risks.",
+        provider="mock",
     )
 
     assert result.project.spec.id == "data_ops"
@@ -20,6 +21,7 @@ def test_runtime_result_serializes_for_api_clients() -> None:
     result = run_project(
         "data_ops",
         "Review this SQL query for performance, missing values, and summarize the risks.",
+        provider="mock",
     )
 
     payload = result.as_dict()

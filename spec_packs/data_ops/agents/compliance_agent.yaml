@@ -22,9 +22,9 @@ output_contract:
     - redactions
     - confidence
 models:
-  default: local/gemma-3-4b
+  default: anthropic/claude-opus-5
   fallback:
-    - google/gemini-flash
+    - openai/gpt-4.1-mini
 tools:
   - agentflow_pii_detector
 fallback_agents: []

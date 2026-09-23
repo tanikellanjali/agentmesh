@@ -126,8 +126,8 @@ def agent_spec(agent: DraftAgent) -> dict[str, Any]:
             "required_fields": ["summary", "findings", "confidence"],
         },
         "models": {
-            "default": "local/gemma-3-4b",
-            "fallback": ["openai/gpt-4.1-mini", "google/gemini-flash"],
+            "default": "anthropic/claude-opus-5",
+            "fallback": ["openai/gpt-4.1-mini"],
         },
         "tools": agent.tools,
         "fallback_agents": [],
@@ -260,23 +260,35 @@ def write_project_files(
         paths["models"] / "model_routing.yaml": yaml.safe_dump(
             {
                 "models": {
-                    "local/gemma-3-4b": {
-                        "provider": "local",
-                        "cost_per_1k_input_tokens": 0,
-                        "cost_per_1k_output_tokens": 0,
+                    "anthropic/claude-opus-5": {
+                        "provider": "anthropic",
+                        "model": "claude-opus-5",
+                        "cost_per_1k_input_tokens": 0.005,
+                        "cost_per_1k_output_tokens": 0.025,
+                    },
+                    "anthropic/claude-sonnet-5": {
+                        "provider": "anthropic",
+                        "model": "claude-sonnet-5",
+                        "cost_per_1k_input_tokens": 0.002,
+                        "cost_per_1k_output_tokens": 0.010,
                     },
                     "openai/gpt-4.1-mini": {
                         "provider": "openai",
+                        "model": "gpt-4.1-mini",
                         "cost_per_1k_input_tokens": 0.0004,
                         "cost_per_1k_output_tokens": 0.0016,
                     },
-                    "google/gemini-flash": {
-                        "provider": "google",
-                        "cost_per_1k_input_tokens": 0.0005,
-                        "cost_per_1k_output_tokens": 0.0015,
+                    "mock/deterministic": {
+                        "provider": "mock",
+                        "model": "deterministic",
+                        "cost_per_1k_input_tokens": 0,
+                        "cost_per_1k_output_tokens": 0,
                     },
                 },
-                "routing_rules": {"default_local": "local/gemma-3-4b"},
+                "routing_rules": {
+                    "default": "anthropic/claude-opus-5",
+                    "offline": "mock/deterministic",
+                },
             },
             sort_keys=False,
         ),

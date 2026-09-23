@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core concepts &#8212; AgentMesh</title>
+<meta name="description" content="Capabilities, YAML agent specs, runtime synthesis, executors, and enforced output contracts.">
+<meta property="og:title" content="Core concepts &#8212; AgentMesh">
+<meta property="og:description" content="Capabilities, YAML agent specs, runtime synthesis, executors, and enforced output contracts.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html" class="on">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html" class="on">Core concepts</a><a href="graph.html">The agent graph</a><a href="providers.html">Models & credentials</a><a href="observability.html">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status & roadmap</a></div></aside><main><h1>Core concepts</h1>
+<p class="lede">Five ideas explain the whole runtime: capabilities, specs, synthesis, executors, and contracts.</p>
+
+<h2>The pipeline</h2>
+<div class="flowline">request &#8594; resolve capabilities &#8594; match agents &#8594; <b>synthesize the gaps</b> &#8594; build graph &#8594; execute &#8594; structured output</div>
+<p>Everything runs through one function, <code>agentmesh.core.runtime.run_project()</code>. The CLI and the
+FastAPI app are both thin wrappers over it, so the two entry points cannot drift apart.</p>
+
+<h2>Capabilities</h2>
+<p>A request is reduced to a list of capabilities &#8212; <code>sql_analysis</code>,
+<code>pii_detection</code>, <code>report_generation</code>. Agents advertise the capabilities they cover,
+and the matcher connects the two. Nothing in the runtime hardcodes an agent name.</p>
+<div class="note"><b>Known limitation.</b> Capability resolution is keyword matching over the request
+text today. It is deliberately simple and it is the next thing to replace &#8212; see the
+<a href="roadmap.html">roadmap</a>.</div>
+
+<h2>Agents are YAML</h2>
+<p>Most agents need no Python at all. A spec with an output contract runs on the generic model-backed
+executor, where the spec <i>is</i> the prompt: the description sets the role, the capabilities scope the
+work, and the contract defines the JSON that must come back.</p>
+<pre><code><span class="c-key">id</span>: sql_analyzer_agent
+<span class="c-key">name</span>: SQL Analyzer Agent
+<span class="c-key">category</span>: data_ops
+<span class="c-key">description</span>: Reviews SQL for correctness, safety and performance risks.
+<span class="c-key">capabilities</span>:
+  - sql_analysis
+  - query_review
+<span class="c-key">depends_on</span>: []
+<span class="c-key">output_contract</span>:
+  <span class="c-key">format</span>: json
+  <span class="c-key">required_fields</span>: [findings, risk_level, suggested_changes, confidence]
+<span class="c-key">models</span>:
+  <span class="c-key">default</span>: anthropic/claude-opus-5
+  <span class="c-key">fallback</span>: [openai/gpt-4.1-mini]
+<span class="c-key">validation</span>:
+  <span class="c-key">strict_json</span>: true
+  <span class="c-key">confidence_threshold</span>: 0.75</code></pre>
+<p>Specs are validated with <code>extra="forbid"</code>, so a typo'd key fails loudly at load time
+instead of being silently ignored.</p>
+
+<h2>Synthesis: agents that don't exist yet</h2>
+<p>When a required capability has no matching agent, AgentMesh builds one for it and runs it. The run
+reports the gap in <code>missing_capabilities</code> either way, so nothing is hidden &#8212; but the
+work still gets done.</p>
+<pre><code>$ agentmesh run -p data_ops <span class="c-str">"Research the options and summarize them."</span>
+
+&#9475; ID                       &#9475; Origin      &#9475; Level &#9475;
+&#9474; domain_research_agent    &#9474; synthesized &#9474;   0   &#9474;
+&#9474; option_generation_agent  &#9474; synthesized &#9474;   0   &#9474;
+&#9474; report_agent             &#9474; spec        &#9474;   1   &#9474;
+
+Synthesized agents are ephemeral. Re-run with --save-agents to keep them.</code></pre>
+<h3>Ephemeral by default</h3>
+<p>Synthesized agents vanish when the run ends. Nothing is written to disk unless you ask:</p>
+<pre><code>agentmesh run -p data_ops <span class="c-str">"..."</span> --save-agents</code></pre>
+<p>Saved agents land in the project's <code>agents/</code> directory as ordinary specs, so the next run
+loads them from disk and synthesizes nothing. An agent you keep is indistinguishable from one you wrote
+by hand. Use <code>--no-synthesize</code> to turn the behaviour off entirely.</p>
+
+<h2>Executors</h2>
+<p>Every spec names an executor; the default is <code>generic</code>, the model-backed one. Register your
+own when an agent needs real code:</p>
+<pre><code><span class="c-key">from</span> agentmesh.agents.base_agent <span class="c-key">import</span> BaseAgent
+<span class="c-key">from</span> agentmesh.agents.registry <span class="c-key">import</span> register_executor
+
+<span class="c-fn">@register_executor</span>(<span class="c-str">"sql_analyzer"</span>)
+<span class="c-key">class</span> SqlAnalyzerAgent(BaseAgent):
+    <span class="c-key">def</span> <span class="c-fn">run</span>(self, message, context):
+        <span class="c-com"># self.broker.resolve(self.spec) gives you a metered, retrying model call</span>
+        ...</code></pre>
+<pre><code><span class="c-key">executor</span>: sql_analyzer</code></pre>
+<p>Retries, timing, token accounting and cost tracking live in the object the broker hands you, so any
+executor anyone writes gets all of it for free.</p>
+
+<h2>Output contracts</h2>
+<p><code>output_contract.required_fields</code> is enforced. If the model returns JSON missing a required
+field, the field list is attached to the output as <code>contract_violations</code> rather than being
+quietly accepted. Unparsable responses are flagged the same way, with the raw text preserved.</p>
+<pre><code>{
+  <span class="c-key">"agent_id"</span>: <span class="c-str">"sql_analyzer_agent"</span>,
+  <span class="c-key">"summary"</span>: <span class="c-str">"..."</span>,
+  <span class="c-key">"contract_violations"</span>: [<span class="c-str">"risk_level"</span>, <span class="c-str">"confidence"</span>]
+}</code></pre><div class="pager"><a href="getting-started.html"><span>Previous</span>Getting started</a><a href="graph.html" style="text-align:right"><span>Next</span>The agent graph</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

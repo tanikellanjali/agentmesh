@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTTP API &#8212; AgentMesh</title>
+<meta name="description" content="FastAPI endpoints, request and response shapes, status codes, and calling the runtime directly from Python.">
+<meta property="og:title" content="HTTP API &#8212; AgentMesh">
+<meta property="og:description" content="FastAPI endpoints, request and response shapes, status codes, and calling the runtime directly from Python.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html" class="on">API</a><a href="roadmap.html">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="graph.html">The agent graph</a><a href="providers.html">Models & credentials</a><a href="observability.html">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html" class="on">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status & roadmap</a></div></aside><main><h1>HTTP API</h1>
+<p class="lede">A FastAPI wrapper over the same <code>run_project()</code> the CLI calls. It adds no logic
+of its own, so the two entry points cannot diverge.</p>
+<pre><code>uvicorn agentmesh.api.server:app --reload</code></pre>
+<div class="warn"><b>No authentication.</b> The API ships with no auth, no rate limiting, and no request
+size caps. Run it on localhost or behind your own gateway &#8212; do not expose it to the internet.</div>
+
+<h2>Endpoints</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Method</th><th>Path</th><th>Returns</th></tr></thead>
+<tbody>
+<tr><td><code>GET</code></td><td><code>/health</code></td><td>Status and version</td></tr>
+<tr><td><code>GET</code></td><td><code>/projects</code></td><td>Available spec packs</td></tr>
+<tr><td><code>GET</code></td><td><code>/projects/{id}/agents</code></td><td>Enabled agents and their capabilities</td></tr>
+<tr><td><code>POST</code></td><td><code>/projects/{id}/run</code></td><td>Execute the mesh</td></tr>
+</tbody></table></div>
+<p>Interactive docs are at <code>/docs</code> once the server is running.</p>
+
+<h2><code>POST /projects/{id}/run</code></h2>
+<pre><code>curl -X POST http://127.0.0.1:8000/projects/data_ops/run \
+  -H <span class="c-str">"Content-Type: application/json"</span> \
+  -d <span class="c-str">'{"message": "Review this SQL query.", "provider": "mock"}'</span></code></pre>
+<h3>Request body</h3>
+<div class="tablewrap"><table>
+<thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td><code>message</code></td><td>string</td><td>required</td><td>The user request</td></tr>
+<tr><td><code>user_id</code></td><td>string</td><td><code>"default_user"</code></td><td>Echoed back on the response</td></tr>
+<tr><td><code>provider</code></td><td>string</td><td><code>null</code></td><td>Force one provider</td></tr>
+<tr><td><code>model</code></td><td>string</td><td><code>null</code></td><td>Force one routing key or model id</td></tr>
+<tr><td><code>synthesize</code></td><td>bool</td><td><code>true</code></td><td>Build agents for uncovered capabilities</td></tr>
+<tr><td><code>store_agents</code></td><td>bool</td><td><code>false</code></td><td>Persist synthesized agents to disk</td></tr>
+<tr><td><code>max_attempts</code></td><td>int</td><td><code>3</code></td><td>Attempts per model call</td></tr>
+<tr><td><code>max_cost</code></td><td>float</td><td><code>null</code></td><td>Cost ceiling in USD; none by default</td></tr>
+</tbody></table></div>
+
+<h3>Response</h3>
+<pre><code>{
+  <span class="c-key">"run_id"</span>: <span class="c-str">"2467afcf710e"</span>,
+  <span class="c-key">"project"</span>: {<span class="c-key">"id"</span>: <span class="c-str">"data_ops"</span>, <span class="c-key">"name"</span>: <span class="c-str">"Data Operations Agent Pack"</span>},
+  <span class="c-key">"required_capabilities"</span>: [<span class="c-str">"sql_analysis"</span>, <span class="c-str">"report_generation"</span>],
+  <span class="c-key">"reasoning"</span>: <span class="c-str">"Detected request terms for ..."</span>,
+  <span class="c-key">"selected_agents"</span>: [<span class="c-str">"sql_analyzer_agent"</span>, <span class="c-str">"report_agent"</span>],
+  <span class="c-key">"missing_capabilities"</span>: [],
+  <span class="c-key">"synthesized_agents"</span>: [],
+  <span class="c-key">"stored_agents"</span>: [],
+  <span class="c-key">"graph"</span>: {
+    <span class="c-key">"levels"</span>: [[<span class="c-str">"sql_analyzer_agent"</span>], [<span class="c-str">"report_agent"</span>]],
+    <span class="c-key">"final_agent"</span>: <span class="c-str">"report_agent"</span>
+  },
+  <span class="c-key">"usage"</span>: {
+    <span class="c-key">"input_tokens"</span>: 254, <span class="c-key">"output_tokens"</span>: 90,
+    <span class="c-key">"estimated_cost_usd"</span>: 0.0035,
+    <span class="c-key">"llm_calls"</span>: 2, <span class="c-key">"retries"</span>: 0
+  },
+  <span class="c-key">"agent_outputs"</span>: [
+    {<span class="c-key">"agent_id"</span>: <span class="c-str">"sql_analyzer_agent"</span>, <span class="c-key">"level"</span>: 0,
+     <span class="c-key">"output"</span>: { ... }, <span class="c-key">"usage"</span>: { ... }}
+  ],
+  <span class="c-key">"llm_calls"</span>: [ { <span class="c-com">/* one record per model call */</span> } ],
+  <span class="c-key">"final_response"</span>: { ... }
+}</code></pre>
+
+<h2>Status codes</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Code</th><th>When</th></tr></thead>
+<tbody>
+<tr><td><code>200</code></td><td>Run completed. Individual agents may still carry <code>error</code> in their output.</td></tr>
+<tr><td><code>402</code></td><td>Stopped on the <code>max_cost</code> ceiling you set</td></tr>
+<tr><td><code>404</code></td><td>Unknown project, or a spec failed to load</td></tr>
+<tr><td><code>503</code></td><td>No usable provider &#8212; the detail names every candidate tried</td></tr>
+</tbody></table></div>
+
+<h2>Using the runtime directly</h2>
+<p>Skip HTTP entirely when you are already in Python:</p>
+<pre><code><span class="c-key">from</span> agentmesh.core.runtime <span class="c-key">import</span> run_project
+
+result = run_project(
+    <span class="c-str">"data_ops"</span>,
+    <span class="c-str">"Review this SQL query."</span>,
+    provider=<span class="c-str">"anthropic"</span>,
+    max_cost=0.50,
+)
+
+print(result.run.final_response)
+print(result.run.cost, result.run.llm_calls, result.run.retries)
+payload = result.as_dict()   <span class="c-com"># the same shape the API returns</span></code></pre><div class="pager"><a href="cli.html"><span>Previous</span>CLI commands</a><a href="roadmap.html" style="text-align:right"><span>Next</span>Status & roadmap</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

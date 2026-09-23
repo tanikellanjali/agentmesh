@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The agent graph &#8212; AgentMesh</title>
+<meta name="description" content="Dependency levels, concurrent execution, the composer rule, and why invalid graphs fail before any model is called.">
+<meta property="og:title" content="The agent graph &#8212; AgentMesh">
+<meta property="og:description" content="Dependency levels, concurrent execution, the composer rule, and why invalid graphs fail before any model is called.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html" class="on">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="graph.html" class="on">The agent graph</a><a href="providers.html">Models & credentials</a><a href="observability.html">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status & roadmap</a></div></aside><main><h1>The agent graph</h1>
+<p class="lede">Agents run in dependency levels, not a fixed order. Independent agents run concurrently,
+and the final answer comes from a designated composer rather than whichever agent finished last.</p>
+<div class="diagram">
+<svg viewBox="0 0 760 260" role="img" aria-label="A request fans out to two agents running in parallel, then converges on a composer agent">
+<defs><marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+<path d="M0,0 L9,4.5 L0,9 z" fill="var(--ink-faint)"/></marker></defs>
+<g font-family="var(--mono)" font-size="12.5">
+<rect x="6" y="104" width="128" height="52" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
+<text x="70" y="126" text-anchor="middle" fill="var(--ink)">request</text>
+<text x="70" y="143" text-anchor="middle" fill="var(--ink-faint)" font-size="11">capabilities</text>
+<rect x="230" y="34" width="180" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+<text x="320" y="57" text-anchor="middle" fill="var(--accent-ink)">sql_analyzer_agent</text>
+<text x="320" y="74" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0</text>
+<rect x="230" y="170" width="180" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+<text x="320" y="193" text-anchor="middle" fill="var(--accent-ink)">data_quality_agent</text>
+<text x="320" y="210" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0</text>
+<rect x="506" y="104" width="172" height="56" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
+<text x="592" y="127" text-anchor="middle" fill="var(--ink)">report_agent</text>
+<text x="592" y="144" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 1 &#183; composer</text>
+<g stroke="var(--ink-faint)" stroke-width="1.4" fill="none" marker-end="url(#ar)">
+<path d="M134,122 C182,122 182,62 224,62"/><path d="M134,138 C182,138 182,198 224,198"/>
+<path d="M410,62 C452,62 452,122 500,122"/><path d="M410,198 C452,198 452,138 500,138"/></g>
+<text x="320" y="128" text-anchor="middle" fill="var(--ink-faint)" font-size="11">run concurrently</text>
+<text x="592" y="186" text-anchor="middle" fill="var(--ink-faint)" font-size="11">&#8594; final response</text>
+</g></svg></div>
+<p class="cap">Levels are derived by topological sort. Within a level, order is by id so runs are reproducible.</p>
+
+<h2>Declaring dependencies</h2>
+<pre><code><span class="c-key">id</span>: data_quality_agent
+<span class="c-key">depends_on</span>:
+  - ingestion_agent</code></pre>
+<p>An agent with no <code>depends_on</code> lands in level 0 and runs immediately. An agent that declares
+dependencies waits for all of them.</p>
+
+<h2>The composer rule</h2>
+<p>An agent whose capabilities include <code>response_composition</code> is the composer. It implicitly
+waits for every other agent and owns the run's final response.</p>
+<div class="note">This replaces a hardcoded ordering table and fixes a real bug: previously
+<code>final_response</code> was simply the last execution, so a late-running agent could silently
+overwrite the report with its own output.</div>
+<p>Explicit <code>depends_on</code> always wins over the implicit rule. An agent that deliberately runs
+<i>after</i> the composer is supported &#8212; the composer's implicit dependencies exclude anything
+placed downstream of it, so declaring "run after the report" cannot create a cycle.</p>
+
+<h2>Concurrency</h2>
+<p>Agents in the same level have no dependency on each other, so they execute in a thread pool. Model
+calls are IO-bound, which is exactly the case threads handle well.</p>
+<pre><code>agentmesh run -p data_ops <span class="c-str">"..."</span> --max-workers 8   <span class="c-com"># default 4</span>
+agentmesh run -p data_ops <span class="c-str">"..."</span> --max-workers 1   <span class="c-com"># fully serial</span></code></pre>
+<p>Each agent in a level reads a snapshot of what earlier levels produced; their outputs merge once the
+level completes. That keeps parallel execution deterministic in its inputs.</p>
+
+<h2>Context flows downstream</h2>
+<p>Downstream agents receive upstream output in their prompt. You can see it in the token counts &#8212;
+the composer reads far more input than the level-0 agents because it is actually being given their work:</p>
+<pre><code>&#9475; Agent              &#9475; Calls &#9475;  In &#9475; Out &#9475;
+&#9474; data_quality_agent &#9474;     1 &#9474;  23 &#9474;  30 &#9474;
+&#9474; sql_analyzer_agent &#9474;     1 &#9474;  23 &#9474;  30 &#9474;
+&#9474; report_agent       &#9474;     1 &#9474; <b>208</b> &#9474;  30 &#9474;   <span class="c-com">&#8592; reads both</span></code></pre>
+
+<h2>Invalid graphs fail early</h2>
+<p>The graph is built before any model is called, so a bad topology costs nothing:</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Problem</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>Dependency on an agent that isn't in the run</td><td><code>GraphError: Agent 'x' depends on unknown agent(s): y</code></td></tr>
+<tr><td>Agent depends on itself</td><td><code>GraphError: Agent 'x' depends on itself</code></td></tr>
+<tr><td>Cycle between agents</td><td><code>GraphError: Circular dependency between agents: a, b</code></td></tr>
+</tbody></table></div>
+
+<h2>Inspecting the graph</h2>
+<p>Every run reports its levels. Over the API they come back under <code>graph</code>:</p>
+<pre><code>{
+  <span class="c-key">"graph"</span>: {
+    <span class="c-key">"levels"</span>: [[<span class="c-str">"data_quality_agent"</span>, <span class="c-str">"sql_analyzer_agent"</span>], [<span class="c-str">"report_agent"</span>]],
+    <span class="c-key">"final_agent"</span>: <span class="c-str">"report_agent"</span>
+  }
+}</code></pre><div class="pager"><a href="concepts.html"><span>Previous</span>Core concepts</a><a href="providers.html" style="text-align:right"><span>Next</span>Models & credentials</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

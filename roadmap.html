@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status &amp; roadmap &#8212; AgentMesh</title>
+<meta name="description" content="What AgentMesh does today, what it doesn't, and what is coming next.">
+<meta property="og:title" content="Status &amp; roadmap &#8212; AgentMesh">
+<meta property="og:description" content="What AgentMesh does today, what it doesn't, and what is coming next.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html" class="on">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="graph.html">The agent graph</a><a href="providers.html">Models & credentials</a><a href="observability.html">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html" class="on">Status & roadmap</a></div></aside><main><h1>Status &amp; roadmap</h1>
+<p class="lede">v0.1.0, 81 passing tests. This page is the real state of the project, not a roadmap
+dressed up as a changelog.</p>
+
+<h2>What works</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Capability</th><th>State</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>YAML specs, registry, capability matching</td><td class="yes">Working</td><td>Strict validation; typo'd specs fail loudly</td></tr>
+<tr><td>Dynamic agent synthesis</td><td class="yes">Working</td><td>Deterministic &#8212; not yet model-written</td></tr>
+<tr><td>Opt-in agent persistence</td><td class="yes">Working</td><td><code>--save-agents</code>; ephemeral otherwise</td></tr>
+<tr><td>Dependency graph + concurrency</td><td class="yes">Working</td><td>Topological levels, cycle detection</td></tr>
+<tr><td>Claude provider</td><td class="yes">Working</td><td>Tested against real SDK response objects</td></tr>
+<tr><td>OpenAI provider</td><td class="yes">Working</td><td>Not yet verified against the live API</td></tr>
+<tr><td>Retries with backoff</td><td class="yes">Working</td><td>Transient failures only</td></tr>
+<tr><td>Per-call telemetry &amp; cost</td><td class="yes">Working</td><td>Tokens, attempts, duration, outcome</td></tr>
+<tr><td>Opt-in budget ceilings</td><td class="yes">Working</td><td>Concurrent levels can overshoot; <code>--max-workers 1</code> is strict</td></tr>
+<tr><td>Output-contract validation</td><td class="yes">Working</td><td>Violations reported, never hidden</td></tr>
+</tbody></table></div>
+
+<h2>What doesn't</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Gap</th><th>Impact</th></tr></thead>
+<tbody>
+<tr><td>Per-call timeouts</td><td>A hung provider blocks its level indefinitely</td></tr>
+<tr><td>Run persistence under <code>.runs/</code></td><td>Telemetry is structured but lost when the process exits</td></tr>
+<tr><td>API authentication</td><td>The FastAPI app must not be exposed publicly</td></tr>
+<tr><td>LLM-based synthesis</td><td>Synthesized agents are templated, not reasoned about</td></tr>
+<tr><td>Capability resolution</td><td>Keyword matching over request text; brittle and hard to scale</td></tr>
+<tr><td>Ollama / local provider</td><td><code>local</code> is currently an alias for the mock</td></tr>
+<tr><td>CI pipeline</td><td>No GitHub Actions, linter, or type checker configured yet</td></tr>
+<tr><td><code>agentflow</code> extra</td><td>References packages not on PyPI; the install fails</td></tr>
+</tbody></table></div>
+
+<h2>Next up</h2>
+<ol class="tight">
+<li><b>Per-call timeouts</b> &#8212; the last thing between this and an unattended run you can trust</li>
+<li><b>Run logs under <code>.runs/</code></b> &#8212; the telemetry is already structured for it</li>
+<li><b>Model-written synthesis</b> &#8212; richer agents drafted from the request, not a template</li>
+<li><b>A real capability resolver</b> &#8212; replacing keyword matching</li>
+<li><b>CI</b> &#8212; Actions matrix on 3.11&#8211;3.13, ruff, mypy</li>
+</ol>
+
+<h2>Contributing</h2>
+<p>The gaps above are the best places to start. Small, well-tested PRs are easiest to review.</p>
+<div class="cta">
+<a class="btn primary" href="https://github.com/tanikellanjali/agentmesh/issues">Open an issue</a>
+<a class="btn" href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>
+<a class="btn" href="https://github.com/tanikellanjali/agentmesh/blob/main/docs/roadmap.md">roadmap.md</a>
+</div>
+<p style="margin-top:22px">Run the suite before you push:</p>
+<pre><code>pip install -e <span class="c-str">".[dev]"</span>
+pytest -q</code></pre><div class="pager"><a href="api.html"><span>Previous</span>HTTP API</a><span></span></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

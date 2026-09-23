@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tools &amp; MCP &#8212; AgentMesh</title>
+<meta name="description" content="Built-in tools, the agentic tool loop, writing your own, and bridging any MCP server into AgentMesh.">
+<meta property="og:title" content="Tools &amp; MCP &#8212; AgentMesh">
+<meta property="og:description" content="Built-in tools, the agentic tool loop, writing your own, and bridging any MCP server into AgentMesh.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html" class="on">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Tools &amp; MCP</h1>
+<p class="lede">An agent that cannot act is a classifier. AgentMesh agents call real tools &#8212;
+built-in ones, and any tool exposed by an MCP server.</p>
+
+<h2>Built-in tools</h2>
+<p class="sub">Dependency-free and real: they do the analysis themselves rather than asking a model
+to guess.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><code>sql_analyze</code></td><td>Writes without <code>WHERE</code>, <code>SELECT *</code>, leading-wildcard <code>LIKE</code>, functions on indexed columns, implicit cross joins, <code>NOT IN</code> subqueries &#8212; severity ranked</td></tr>
+<tr><td><code>pii_scan</code></td><td>Emails, phones, SSNs, IPs, API keys and <b>Luhn-validated</b> credit cards. Returns masked samples, never the raw value</td></tr>
+<tr><td><code>redact_text</code></td><td>Replaces every match, right to left so offsets stay valid</td></tr>
+<tr><td><code>profile_csv</code></td><td>Types, nulls, cardinality, quartiles, duplicates, constant columns &#8212; via DuckDB when installed</td></tr>
+<tr><td><code>describe_data</code></td><td>What data is bound to this agent, and its real schema</td></tr>
+<tr><td><code>query_data</code></td><td>Read-only SQL against bound data, aggregated at the source</td></tr>
+<tr><td><code>estimate_query_cost</code></td><td>Price a query <em>before</em> running it</td></tr>
+<tr><td><code>text_stats</code></td><td>Size checks</td></tr>
+</tbody></table></div>
+
+<h2>Declaring tools on an agent</h2>
+<pre><code><span class="c-key">id</span>: sql_analyzer_agent
+<span class="c-key">tools</span>:
+  - sql_analyze
+  - query_data</code></pre>
+<p>A tool the agent declared but that does not exist is reported as
+<code>tools_unavailable</code> in the output rather than failing the run.</p>
+
+<h2>The loop</h2>
+<p>The model is offered its tools, calls what it needs, receives real results, and keeps going
+until it answers. A tool that raises is reported back to the model as an error so it can retry with
+different arguments &#8212; it does not kill the run.</p>
+<pre><code>model &#8594; tool_use &#8594; <b>execute</b> &#8594; result &#8594; model &#8594; &#8230; &#8594; answer</code></pre>
+<p>Retries, timing and cost live in the call object, so any executor you write gets them free. At
+the iteration limit tools are withheld and the model must answer with what it has.</p>
+
+<h2>Writing a tool</h2>
+<pre><code><span class="c-key">from</span> agentmesh.tools <span class="c-key">import</span> register_tool
+
+<span class="c-fn">@register_tool</span>(
+    name=<span class="c-str">"margin_by_supplier"</span>,
+    description=<span class="c-str">"Compute gross margin per supplier over bound transactions."</span>,
+    input_schema={<span class="c-str">"type"</span>: <span class="c-str">"object"</span>, <span class="c-str">"properties"</span>: {}, <span class="c-str">"additionalProperties"</span>: <span class="c-key">False</span>},
+)
+<span class="c-key">def</span> <span class="c-fn">margin_by_supplier</span>(ctx):
+    <span class="c-key">return</span> ctx.table(<span class="c-str">"transactions"</span>).query(
+        <span class="c-str">"SELECT supplier, SUM(units*(sale_price-unit_cost)) AS margin "</span>
+        <span class="c-str">"FROM {table} GROUP BY supplier"</span>
+    ).summary()</code></pre>
+<div class="note">A tool whose first parameter is <code>ctx</code> is handed the agent's data context.
+The model never sees it, and never sees a credential.</div>
+
+<h2>MCP servers</h2>
+<p class="sub">MCP is the emerging standard for connecting models to tools and data, with servers
+for Postgres, BigQuery, Slack, GitHub and hundreds more &#8212; many maintained by the vendors
+themselves. AgentMesh speaks it rather than reimplementing that long tail.</p>
+<pre><code><span class="c-key">from</span> agentmesh.tools.mcp_bridge <span class="c-key">import</span> McpServer, register_mcp_tools
+
+<span class="c-key">with</span> McpServer(<span class="c-str">"inventory"</span>, command=<span class="c-str">"python"</span>, args=[<span class="c-str">"inventory_server.py"</span>]) <span class="c-key">as</span> server:
+    register_mcp_tools(server)
+    <span class="c-com"># -> ['inventory.reorder_list', 'inventory.stock_level']</span></code></pre>
+<p>Discovered tools become ordinary <code>ToolSpec</code>s, namespaced by server so two servers can
+expose the same name. An agent declares them like any other tool:</p>
+<pre><code><span class="c-key">tools</span>:
+  - inventory.reorder_list
+  - sql_analyze          <span class="c-com"># built-in and MCP side by side</span></code></pre>
+<div class="warn"><b>SDK versions differ.</b> MCP 2.x renamed <code>FastMCP</code> to
+<code>MCPServer</code> and moved to snake_case field names. The bridge reads both generations, so a
+project pinned to <code>mcp&lt;2</code> still works.</div>
+
+<pre><code>pip install -e <span class="c-str">".[mcp]"</span></code></pre><div class="pager"><a href="concepts.html"><span>Previous</span>Core concepts</a><a href="data.html" style="text-align:right"><span>Next</span>Data &amp; connectors</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -4,16 +4,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from agentmesh.access.authorizer import AllowAll, Authorizer
+from agentmesh.access.principal import ANONYMOUS, Principal
 from agentmesh.core.agent_registry import AgentRegistry
 from agentmesh.core.agent_store import persist_agents
 from agentmesh.core.capability_matcher import CapabilityMatch, match_capabilities
 from agentmesh.core.model_router import ModelBroker
 from agentmesh.core.model_settings import configured_env
+from agentmesh.core.run_context import RunContext
 from agentmesh.core.telemetry import RunRecorder
 from agentmesh.core.need_resolver import NeedResolution, resolve_needs
 from agentmesh.core.orchestrator import RunResult, run_agents
 from agentmesh.core.project_loader import DEFAULT_SPEC_PACKS_DIR, LoadedProject, load_project
 from agentmesh.core.spec_loader import read_yaml
+from agentmesh.data.context import SourceRegistry
 from agentmesh.providers.retry import RetryPolicy
 
 
@@ -24,6 +28,7 @@ class RuntimeResult:
     match: CapabilityMatch
     run: RunResult
     recorder: RunRecorder = field(default_factory=RunRecorder)
+    principal: Principal = ANONYMOUS
     stored_agent_paths: list[Path] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -66,6 +71,9 @@ class RuntimeResult:
             ],
             "llm_calls": [call.as_dict() for call in self.recorder.calls],
             "run_id": self.recorder.run_id,
+            "principal": self.principal.as_dict(),
+            "data_ops": [d.as_dict() for d in self.recorder.data_ops],
+            "data_cost_usd": round(self.recorder.data_cost, 6),
             "final_response": self.run.final_response,
         }
 
@@ -106,6 +114,10 @@ def run_project(
     max_cost: float | None = None,
     retry_policy: RetryPolicy | None = None,
     max_workers: int = 4,
+    principal: Principal = ANONYMOUS,
+    authorizer: Authorizer | None = None,
+    sources: SourceRegistry | None = None,
+    max_data_cost: float | None = None,
 ) -> RuntimeResult:
     loaded = load_project(project_id, spec_packs_dir)
     resolution = resolve_needs(message)
@@ -125,7 +137,17 @@ def run_project(
         recorder=recorder,
         retry_policy=retry_policy,
     )
-    run = run_agents(message, match.selected_agents, broker, max_workers=max_workers)
+    run_context = RunContext(
+        principal=principal,
+        authorizer=authorizer or AllowAll(),
+        sources=sources or SourceRegistry.empty(),
+        recorder=recorder,
+        max_data_cost=max_data_cost,
+    )
+    run = run_agents(
+        message, match.selected_agents, broker,
+        max_workers=max_workers, run_context=run_context,
+    )
 
     stored: list[Path] = []
     if store_agents and match.synthesized_agents:
@@ -142,5 +164,6 @@ def run_project(
         match=match,
         run=run,
         recorder=recorder,
+        principal=principal,
         stored_agent_paths=stored,
     )

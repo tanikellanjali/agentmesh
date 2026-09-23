@@ -7,9 +7,17 @@ from typing import Any
 
 from agentmesh.core.telemetry import LLMCall, RunRecorder
 from agentmesh.providers import Provider, ProviderUnavailable, get_provider
-from agentmesh.providers.base import Completion, ProviderError, ProviderRefusal, Usage
+from agentmesh.providers.base import (
+    Completion,
+    Message,
+    ProviderError,
+    ProviderRefusal,
+    Turn,
+    Usage,
+)
 from agentmesh.providers.retry import RetryOutcome, RetryPolicy, call_with_retry
 from agentmesh.schemas.agent_spec import AgentSpec
+from agentmesh.tools.base import ToolSpec
 
 DEFAULT_MAX_TOKENS = 4096
 
@@ -70,22 +78,42 @@ class ModelCall:
         self.retry_policy = retry_policy
 
     def complete(self, *, system: str, prompt: str) -> Completion:
+        turn = self.converse(
+            system=system, messages=[Message(role="user", content=prompt)], tools=None
+        )
+        return Completion(
+            text=turn.text,
+            provider=turn.provider,
+            model=turn.model,
+            usage=turn.usage,
+            stop_reason=turn.stop_reason,
+        )
+
+    def converse(
+        self,
+        *,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec] | None = None,
+    ) -> Turn:
+        """One metered, retried model turn. Tools the model may call are passed through."""
         self.recorder.check_budget(self.agent_id)
 
         outcome = RetryOutcome()
         started = time.perf_counter()
 
-        def operation() -> Completion:
-            return self.provider.complete(
+        def operation() -> Turn:
+            return self.provider.converse(
                 system=system,
-                prompt=prompt,
+                messages=messages,
+                tools=tools,
                 model=self.model.model,
                 max_tokens=self.model.max_tokens,
                 effort=self.model.effort,
             )
 
         try:
-            completion = call_with_retry(operation, self.retry_policy, outcome)
+            turn = call_with_retry(operation, self.retry_policy, outcome)
         except ProviderError as error:
             self._record(
                 outcome=("refusal" if isinstance(error, ProviderRefusal) else "error"),
@@ -98,13 +126,13 @@ class ModelCall:
             raise
 
         self._record(
-            outcome="ok",
+            outcome="tool_use" if turn.wants_tools else "ok",
             attempts=outcome.attempts,
-            usage=completion.usage,
+            usage=turn.usage,
             duration_ms=(time.perf_counter() - started) * 1000,
             retry_errors=outcome.errors,
         )
-        return completion
+        return turn
 
     def _record(
         self,

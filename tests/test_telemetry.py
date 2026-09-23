@@ -12,7 +12,7 @@ from agentmesh.core.telemetry import (
     RunRecorder,
     configure_logging,
 )
-from agentmesh.providers.base import Completion, Usage
+from agentmesh.providers.base import SingleShotMixin, Turn, Usage
 from agentmesh.providers.retry import NO_RETRY
 
 ROUTING = {
@@ -25,15 +25,15 @@ ROUTING = {
 }
 
 
-class CountingProvider:
+class CountingProvider(SingleShotMixin):
     name = "counting"
 
     def __init__(self, credentials=None):
         self.calls = 0
 
-    def complete(self, *, system, prompt, model, max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
         self.calls += 1
-        return Completion(
+        return Turn(
             text='{"summary": "s", "findings": [], "confidence": 0.9}',
             provider=self.name,
             model=model,

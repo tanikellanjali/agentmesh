@@ -5,18 +5,18 @@ from agentmesh.core.graph import GraphError, build_levels, find_composer
 from agentmesh.core.model_router import ModelBroker
 from agentmesh.core.orchestrator import run_agents
 from agentmesh.core.telemetry import RunRecorder
-from agentmesh.providers.base import Completion, Usage
+from agentmesh.providers.base import SingleShotMixin, Turn, Usage
 from agentmesh.providers.retry import NO_RETRY
 
 
-class SlowProvider:
+class SlowProvider(SingleShotMixin):
     name = "slow"
 
     def __init__(self, credentials=None):
         self.order: list[str] = []
 
-    def complete(self, *, system, prompt, model, max_tokens=4096, effort=None):
-        return Completion(
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+        return Turn(
             text='{"summary": "s", "findings": [], "confidence": 0.9, '
             '"recommendations": [], "risks": []}',
             provider=self.name,

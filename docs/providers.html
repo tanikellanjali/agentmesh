@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Models &amp; credentials &#8212; AgentMesh</title>
+<meta name="description" content="Claude and OpenAI providers, routing keys, credential precedence, fallback chains and writing your own adapter.">
+<meta property="og:title" content="Models &amp; credentials &#8212; AgentMesh">
+<meta property="og:description" content="Claude and OpenAI providers, routing keys, credential precedence, fallback chains and writing your own adapter.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html" class="on">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Models &amp; credentials</h1>
+<p class="lede">You choose the provider and the model and supply the keys. AgentMesh routes each
+agent, and never substitutes a fake model when the real one is unavailable.</p>
+
+<h2>Providers</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Name</th><th>Backend</th><th>Requires</th></tr></thead>
+<tbody>
+<tr><td><code>anthropic</code></td><td>Claude, official SDK</td><td><code>ANTHROPIC_API_KEY</code> + <code>[anthropic]</code></td></tr>
+<tr><td><code>openai</code></td><td>OpenAI, official SDK</td><td><code>OPENAI_API_KEY</code> + <code>[openai]</code></td></tr>
+<tr><td><code>mock</code></td><td>Deterministic, drives the real tool loop</td><td>nothing</td></tr>
+<tr><td><code>local</code></td><td>Alias for <code>mock</code> until an Ollama adapter lands</td><td>nothing</td></tr>
+</tbody></table></div>
+<p>Both SDKs are lazily imported. A missing SDK or key gives a named error, not an
+<code>ImportError</code> halfway through a run.</p>
+
+<h2>Precedence</h2>
+<ol class="tight">
+<li><code>--provider</code> / <code>--model</code> on the command</li>
+<li><code>AGENTMESH_PROVIDER</code> / <code>AGENTMESH_MODEL</code> in the environment</li>
+<li>The agent spec's <code>models.default</code>, then each <code>models.fallback</code></li>
+</ol>
+
+<h2>Model routing</h2>
+<p>A stable routing key maps to a provider, the real model id, and per-token cost &#8212; so a
+vendor renaming a model is a one-line change, not a sweep through every spec.</p>
+<pre><code><span class="c-key">models</span>:
+  <span class="c-key">anthropic/claude-opus-5</span>:
+    <span class="c-key">provider</span>: anthropic
+    <span class="c-key">model</span>: claude-opus-5
+    <span class="c-key">cost_per_1k_input_tokens</span>: 0.005
+    <span class="c-key">cost_per_1k_output_tokens</span>: 0.025
+    <span class="c-key">max_tokens</span>: 4096</code></pre>
+<div class="warn"><b>Verify the pricing.</b> The numbers in the example pack are a starting point.
+Check them against each vendor's current price list before trusting a cost report.</div>
+
+<h2>Fallback chains actually degrade</h2>
+<p>An agent's <code>models.fallback</code> list is tried in order; a provider that cannot be
+constructed is skipped for the next candidate. If nothing works, the run stops and says what it
+tried:</p>
+<pre><code>No usable model for agent 'sql_analyzer_agent'
+  (anthropic/claude-opus-5 -&gt; anthropic: ANTHROPIC_API_KEY is not set.;
+   openai/gpt-4.1-mini -&gt; openai: OPENAI_API_KEY is not set.).
+Run `agentmesh configure-models`, or use --provider mock to run offline.</code></pre>
+<div class="note"><b>The chain never ends at a mock.</b> Degrading to fake output would make a
+broken configuration look like a working one. Use <code>--provider mock</code> when you want that,
+explicitly.</div>
+
+<h2>Writing a provider</h2>
+<pre><code><span class="c-key">class</span> MyProvider(SingleShotMixin):
+    name = <span class="c-str">"my-provider"</span>
+
+    <span class="c-key">def</span> <span class="c-fn">converse</span>(self, *, system, messages, tools=<span class="c-key">None</span>, model, max_tokens=4096, effort=<span class="c-key">None</span>):
+        <span class="c-key">return</span> Turn(text=..., provider=self.name, model=model,
+                    tool_calls=[...], usage=Usage(...))
+
+register_provider(<span class="c-str">"my-provider"</span>, MyProvider)</code></pre>
+<p>Raise <code>ProviderTransientError</code> for anything worth retrying and
+<code>ProviderAuthError</code> for anything that is not.</p><div class="pager"><a href="graph.html"><span>Previous</span>Execution &amp; graph</a><a href="governance.html" style="text-align:right"><span>Next</span>Governance &amp; access</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+
+from agentmesh.tools.base import ToolCall, ToolSpec
 
 
 class ProviderError(RuntimeError):
@@ -49,15 +51,60 @@ class Completion:
     stop_reason: str | None = None
 
 
+@dataclass(frozen=True)
+class Message:
+    """A provider-neutral conversation turn.
+
+    role is "user", "assistant" or "tool". Adapters translate this shape into
+    each vendor's native format, so the agent loop never learns vendor details.
+    """
+
+    role: str
+    content: str = ""
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    tool_call_id: str | None = None
+    tool_name: str | None = None
+
+
+@dataclass(frozen=True)
+class Turn:
+    """One assistant response, which may ask for tools instead of answering."""
+
+    text: str
+    provider: str
+    model: str
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    usage: Usage = field(default_factory=Usage)
+    stop_reason: str | None = None
+
+    @property
+    def wants_tools(self) -> bool:
+        return bool(self.tool_calls)
+
+    def as_message(self) -> Message:
+        return Message(role="assistant", content=self.text, tool_calls=list(self.tool_calls))
+
+
 @runtime_checkable
 class Provider(Protocol):
-    """Minimal contract every model backend implements.
+    """Contract every model backend implements.
 
-    Text in, text out. Structure is the runtime's concern, not the provider's,
-    which keeps adapters thin and comparable across vendors.
+    `converse` is the real surface: a message list plus the tools the model may
+    call. `complete` is the single-shot convenience wrapper over it.
     """
 
     name: str
+
+    def converse(
+        self,
+        *,
+        system: str,
+        messages: list[Message],
+        tools: list[ToolSpec] | None = None,
+        model: str,
+        max_tokens: int = 4096,
+        effort: str | None = None,
+    ) -> Turn: ...
 
     def complete(
         self,
@@ -68,3 +115,32 @@ class Provider(Protocol):
         max_tokens: int = 4096,
         effort: str | None = None,
     ) -> Completion: ...
+
+
+class SingleShotMixin:
+    """Implements `complete` for any provider that implements `converse`."""
+
+    def complete(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        model: str,
+        max_tokens: int = 4096,
+        effort: str | None = None,
+    ) -> Completion:
+        turn = self.converse(  # type: ignore[attr-defined]
+            system=system,
+            messages=[Message(role="user", content=prompt)],
+            tools=None,
+            model=model,
+            max_tokens=max_tokens,
+            effort=effort,
+        )
+        return Completion(
+            text=turn.text,
+            provider=turn.provider,
+            model=turn.model,
+            usage=turn.usage,
+            stop_reason=turn.stop_reason,
+        )

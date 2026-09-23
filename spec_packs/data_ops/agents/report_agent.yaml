@@ -24,7 +24,7 @@ models:
   fallback:
     - openai/gpt-4.1-mini
 tools:
-  - agentflow_report_generator
+  - text_stats
 fallback_agents: []
 troubleshooting:
   enabled: true

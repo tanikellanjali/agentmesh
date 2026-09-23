@@ -443,8 +443,14 @@ def run_command(
     cost_table.add_column("Out", justify="right")
     cost_table.add_column("Cost $", justify="right")
 
+    cost_table.add_column("Tools")
+
     models_by_agent = {call.agent_id: call.model_key for call in result.recorder.calls}
     for execution in result.run.executions:
+        runs = result.recorder.tools_for(execution.agent_id)
+        tools = ", ".join(
+            f"{r.tool}{'' if r.ok else ' [red]x[/red]'}" for r in runs
+        ) or "-"
         cost_table.add_row(
             execution.agent_id,
             models_by_agent.get(execution.agent_id, "-"),
@@ -453,6 +459,7 @@ def run_command(
             str(execution.usage.input_tokens),
             str(execution.usage.output_tokens),
             f"{execution.cost:.4f}",
+            tools,
         )
 
     run_usage = result.run.usage
@@ -464,6 +471,7 @@ def run_command(
         f"[bold]{run_usage.input_tokens}[/bold]",
         f"[bold]{run_usage.output_tokens}[/bold]",
         f"[bold]{result.run.cost:.4f}[/bold]",
+        f"[bold]{len(result.recorder.tool_runs)} run[/bold]",
     )
     console.print(cost_table)
 

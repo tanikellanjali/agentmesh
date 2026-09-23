@@ -43,13 +43,47 @@ class LLMCall:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class ToolInvocation:
+    """One tool execution, so the trace shows what an agent actually did."""
+
+    agent_id: str
+    tool: str
+    ok: bool
+    duration_ms: float
+    error: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class DataOp:
+    """One query against a tenant's data, with what it scanned and cost."""
+
+    agent_id: str
+    source: str
+    ref: str
+    ok: bool
+    rows: int = 0
+    bytes_scanned: int = 0
+    cost: float = 0.0
+    duration_ms: float = 0.0
+    error: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 class RunRecorder:
-    """Collects every model call in a run and enforces an opt-in cost ceiling."""
+    """Collects every model call, tool run and data query in one run."""
 
     def __init__(self, run_id: str | None = None, max_cost: float | None = None) -> None:
         self.run_id = run_id or uuid.uuid4().hex[:12]
         self.max_cost = max_cost
         self.calls: list[LLMCall] = []
+        self.tool_runs: list[ToolInvocation] = []
+        self.data_ops: list[DataOp] = []
         # Agents in one dependency level run concurrently.
         self._lock = threading.Lock()
 
@@ -126,10 +160,45 @@ class RunRecorder:
         )
         return call
 
+    def record_tool(self, invocation: ToolInvocation) -> ToolInvocation:
+        with self._lock:
+            self.tool_runs.append(invocation)
+        logger.info(
+            "tool_run agent=%s tool=%s ok=%s %.0fms",
+            invocation.agent_id, invocation.tool, invocation.ok, invocation.duration_ms,
+            extra={"agentmesh": {"run_id": self.run_id, **invocation.as_dict()}},
+        )
+        return invocation
+
+    def record_data(self, op: DataOp) -> DataOp:
+        with self._lock:
+            self.data_ops.append(op)
+        logger.info(
+            "data_op agent=%s source=%s ref=%s ok=%s rows=%s bytes=%s cost=$%.6f %.0fms",
+            op.agent_id, op.source, op.ref, op.ok, op.rows,
+            op.bytes_scanned, op.cost, op.duration_ms,
+            extra={"agentmesh": {"run_id": self.run_id, **op.as_dict()}},
+        )
+        return op
+
+    @property
+    def data_cost(self) -> float:
+        return sum(op.cost for op in self.data_ops)
+
+    def data_for(self, agent_id: str) -> list[DataOp]:
+        return [d for d in self.data_ops if d.agent_id == agent_id]
+
+    def tools_for(self, agent_id: str) -> list[ToolInvocation]:
+        return [t for t in self.tool_runs if t.agent_id == agent_id]
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "run_id": self.run_id,
             "llm_calls": len(self.calls),
+            "tool_runs": len(self.tool_runs),
+            "tools": [t.as_dict() for t in self.tool_runs],
+            "data_ops": [d.as_dict() for d in self.data_ops],
+            "data_cost_usd": round(self.data_cost, 6),
             "retries": self.retries,
             "input_tokens": self.usage.input_tokens,
             "output_tokens": self.usage.output_tokens,

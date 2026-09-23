@@ -8,6 +8,7 @@ from agentmesh.schemas.agent_spec import AgentSpec
 
 if TYPE_CHECKING:
     from agentmesh.core.model_router import ModelBroker
+    from agentmesh.core.run_context import RunContext
 
 
 @register_executor("mock")
@@ -24,5 +25,9 @@ class MockAgent(BaseAgent):
         return output
 
 
-def build_agent(spec: AgentSpec, broker: "ModelBroker | None" = None) -> BaseAgent:
-    return get_executor(spec.executor)(spec, broker)
+def build_agent(
+    spec: AgentSpec,
+    broker: "ModelBroker | None" = None,
+    run_context: "RunContext | None" = None,
+) -> BaseAgent:
+    return get_executor(spec.executor)(spec, broker, run_context)

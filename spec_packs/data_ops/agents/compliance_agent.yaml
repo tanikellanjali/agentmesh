@@ -26,7 +26,8 @@ models:
   fallback:
     - openai/gpt-4.1-mini
 tools:
-  - agentflow_pii_detector
+  - pii_scan
+  - redact_text
 fallback_agents: []
 troubleshooting:
   enabled: true

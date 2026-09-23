@@ -25,7 +25,9 @@ models:
   default: anthropic/claude-opus-5
   fallback:
     - openai/gpt-4.1-mini
-tools: []
+tools:
+  - profile_csv
+  - text_stats
 fallback_agents: []
 troubleshooting:
   enabled: true

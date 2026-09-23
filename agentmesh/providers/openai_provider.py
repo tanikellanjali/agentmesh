@@ -1,19 +1,25 @@
 from __future__ import annotations
 
+import json
+from typing import Any
+
 from agentmesh.providers.base import (
-    Completion,
+    Message,
     ProviderAuthError,
     ProviderError,
     ProviderRateLimited,
     ProviderTransientError,
     ProviderUnavailable,
+    SingleShotMixin,
+    Turn,
     Usage,
 )
+from agentmesh.tools.base import ToolCall, ToolSpec
 
 DEFAULT_MODEL = "gpt-4.1-mini"
 
 
-class OpenAIProvider:
+class OpenAIProvider(SingleShotMixin):
     """Adapter for the OpenAI Chat Completions API via the official `openai` SDK."""
 
     name = "openai"
@@ -35,23 +41,66 @@ class OpenAIProvider:
         self._sdk = openai
         self._client = openai.OpenAI(api_key=api_key)
 
-    def complete(
+    @staticmethod
+    def _to_native(system: str, messages: list[Message]) -> list[dict[str, Any]]:
+        native: list[dict[str, Any]] = [{"role": "system", "content": system}]
+        for msg in messages:
+            if msg.role == "tool":
+                native.append({
+                    "role": "tool",
+                    "tool_call_id": msg.tool_call_id,
+                    "content": msg.content,
+                })
+            elif msg.role == "assistant":
+                entry: dict[str, Any] = {"role": "assistant", "content": msg.content or None}
+                if msg.tool_calls:
+                    entry["tool_calls"] = [
+                        {
+                            "id": call.id,
+                            "type": "function",
+                            "function": {
+                                "name": call.name,
+                                "arguments": json.dumps(call.arguments),
+                            },
+                        }
+                        for call in msg.tool_calls
+                    ]
+                native.append(entry)
+            else:
+                native.append({"role": "user", "content": msg.content})
+        return native
+
+    def converse(
         self,
         *,
         system: str,
-        prompt: str,
+        messages: list[Message],
+        tools: list[ToolSpec] | None = None,
         model: str = DEFAULT_MODEL,
         max_tokens: int = 4096,
         effort: str | None = None,
-    ) -> Completion:
+    ) -> Turn:
         openai = self._sdk
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": prompt},
-        ]
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": self._to_native(system, messages),
+        }
+        if tools:
+            kwargs["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t.name,
+                        "description": t.description,
+                        "parameters": t.input_schema,
+                    },
+                }
+                for t in tools
+            ]
 
         try:
-            response = self._call(model, messages, max_tokens)
+            response = self._call(kwargs, max_tokens)
         except openai.AuthenticationError as exc:
             raise ProviderAuthError(f"OpenAI rejected the API key: {exc}") from exc
         except openai.PermissionDeniedError as exc:
@@ -68,10 +117,19 @@ class OpenAIProvider:
 
         choice = response.choices[0]
         usage = response.usage
-        return Completion(
+        calls: list[ToolCall] = []
+        for raw in getattr(choice.message, "tool_calls", None) or []:
+            try:
+                arguments = json.loads(raw.function.arguments or "{}")
+            except json.JSONDecodeError:
+                arguments = {}
+            calls.append(ToolCall(id=raw.id, name=raw.function.name, arguments=arguments))
+
+        return Turn(
             text=choice.message.content or "",
             provider=self.name,
             model=response.model,
+            tool_calls=calls,
             usage=Usage(
                 input_tokens=getattr(usage, "prompt_tokens", 0) or 0,
                 output_tokens=getattr(usage, "completion_tokens", 0) or 0,
@@ -79,18 +137,12 @@ class OpenAIProvider:
             stop_reason=choice.finish_reason,
         )
 
-    def _call(self, model: str, messages: list[dict[str, str]], max_tokens: int):
+    def _call(self, kwargs: dict[str, Any], max_tokens: int):
         """Newer models require `max_completion_tokens`; older ones only accept
         `max_tokens`. Try the current name first and fall back once."""
         try:
             return self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_completion_tokens=max_tokens,
+                **kwargs, max_completion_tokens=max_tokens
             )
         except self._sdk.BadRequestError:
-            return self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens,
-            )
+            return self._client.chat.completions.create(**kwargs, max_tokens=max_tokens)

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started &#8212; AgentMesh</title>
+<meta name="description" content="Install AgentMesh, run offline with no credentials, add your keys, and bind your own data.">
+<meta property="og:title" content="Getting started &#8212; AgentMesh">
+<meta property="og:description" content="Install AgentMesh, run offline with no credentials, add your keys, and bind your own data.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html" class="on">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Getting started</h1>
+<p class="lede">Install, run a mesh offline with no credentials, then connect a model and your data.</p>
+
+<h2>Install</h2>
+<pre><code>git clone https://github.com/tanikellanjali/agentmesh
+cd agentmesh
+python -m venv .venv &amp;&amp; source .venv/bin/activate
+pip install -e <span class="c-str">".[dev]"</span></code></pre>
+<p class="cap">Everything beyond the core is an optional extra, so a contributor with no API keys can still run the full test suite.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Extra</th><th>Brings</th></tr></thead>
+<tbody>
+<tr><td><code>[anthropic]</code> <code>[openai]</code> <code>[providers]</code></td><td>Model providers</td></tr>
+<tr><td><code>[langgraph]</code></td><td>Checkpointing, resume, human-in-the-loop</td></tr>
+<tr><td><code>[mcp]</code></td><td>Any MCP server's tools</td></tr>
+<tr><td><code>[duckdb]</code></td><td>CSV, Parquet, JSON with correct types</td></tr>
+<tr><td><code>[sql]</code></td><td>Postgres, MySQL, Oracle, Snowflake &#8230;</td></tr>
+<tr><td><code>[all]</code></td><td>All of the above</td></tr>
+</tbody></table></div>
+
+<h2>Run without credentials</h2>
+<pre><code>agentmesh run --project data_ops <span class="c-str">"Review this SQL query for quality risks"</span> --provider mock</code></pre>
+<pre><code>&#9475; ID                 &#9475; Capabilities                          &#9475; Origin &#9475; Level &#9475;
+&#9474; data_quality_agent &#9474; data_quality_check, anomaly_detection &#9474; spec   &#9474;   0   &#9474;
+&#9474; sql_analyzer_agent &#9474; sql_analysis, query_review            &#9474; spec   &#9474;   0   &#9474;
+&#9474; report_agent       &#9474; report_generation, response_compos... &#9474; spec   &#9474;   1   &#9474;</code></pre>
+<p>The mock provider still drives the real tool loop, so an offline run proves the plumbing rather
+than skipping it.</p>
+
+<h2>Add credentials</h2>
+<pre><code>agentmesh configure-models      <span class="c-com"># prompts for keys, merges into .env</span>
+agentmesh check-models --live   <span class="c-com"># proves the keys actually work</span></code></pre>
+<p><code>.env</code> is merged, not overwritten &#8212; adding OpenAI later will not wipe your
+Anthropic key. It is gitignored.</p>
+<div class="warn"><b>--live bills you.</b> One real request per provider &#8212; a few tokens each,
+but real money on a real account.</div>
+
+<h2>Bind your data</h2>
+<pre><code><span class="c-key">from</span> agentmesh.data.context <span class="c-key">import</span> SourceRegistry
+<span class="c-key">from</span> agentmesh.data.duckdb_source <span class="c-key">import</span> DuckDbSource
+
+registry = SourceRegistry.empty()
+registry.add_source(DuckDbSource(<span class="c-str">"store_files"</span>, root=<span class="c-str">"./data"</span>))
+registry.bind(<span class="c-str">"transactions"</span>, <span class="c-str">"store_files"</span>, <span class="c-str">"purchases.csv"</span>)</code></pre>
+<pre><code><span class="c-key">from</span> agentmesh.core.runtime <span class="c-key">import</span> run_project
+
+result = run_project(<span class="c-str">"data_ops"</span>, <span class="c-str">"Which supplier has the best margin?"</span>,
+                     sources=registry, max_cost=0.50)</code></pre>
+
+<h2>Run against a real model</h2>
+<pre><code>agentmesh run --project data_ops <span class="c-str">"..."</span> --max-cost 0.50
+agentmesh run --project data_ops <span class="c-str">"..."</span> --provider anthropic --model anthropic/claude-sonnet-5</code></pre>
+<div class="note"><b>If nothing is usable, the run fails.</b> AgentMesh names every candidate it
+tried and why each was rejected. It does not quietly degrade to a fake model, because fake output
+that looks real is worse than an error.</div>
+
+<h2>Next</h2>
+<ul class="tight">
+<li><a href="concepts.html">Core concepts</a> &#8212; specs, capabilities, synthesis</li>
+<li><a href="tools.html">Tools &amp; MCP</a> &#8212; making agents actually do things</li>
+<li><a href="data.html">Data &amp; connectors</a> &#8212; binding your own sources</li>
+</ul><div class="pager"><span></span><a href="concepts.html" style="text-align:right"><span>Next</span>Core concepts</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

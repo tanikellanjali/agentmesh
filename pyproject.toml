@@ -29,6 +29,26 @@ providers = [
   "anthropic>=0.40",
   "openai>=1.40",
 ]
+langgraph = [
+  "langgraph>=1.0",
+]
+mcp = [
+  "mcp>=1.9",
+]
+duckdb = [
+  "duckdb>=1.0",
+]
+sql = [
+  "sqlalchemy>=2.0",
+]
+all = [
+  "anthropic>=0.40",
+  "openai>=1.40",
+  "langgraph>=1.0",
+  "mcp>=1.9",
+  "duckdb>=1.0",
+  "sqlalchemy>=2.0",
+]
 agentflow = [
   "agentflow-pii-detector",
   "agentflow-sql-analyzer",

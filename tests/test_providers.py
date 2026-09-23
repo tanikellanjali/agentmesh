@@ -7,10 +7,11 @@ from agentmesh.core.agent_synthesizer import synthesize_agent
 from agentmesh.core.model_router import ModelBroker, _resolve_key
 from agentmesh.providers import get_provider, list_providers, register_provider
 from agentmesh.providers.base import (
-    Completion,
     ProviderError,
     ProviderRateLimited,
     ProviderUnavailable,
+    SingleShotMixin,
+    Turn,
     Usage,
 )
 
@@ -30,7 +31,7 @@ ROUTING = {
 }
 
 
-class RecordingProvider:
+class RecordingProvider(SingleShotMixin):
     name = "recording"
 
     def __init__(self, credentials=None, payload=None, error=None):
@@ -39,14 +40,15 @@ class RecordingProvider:
         self.error = error
         self.calls = []
 
-    def complete(self, *, system, prompt, model, max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
+        prompt = next((m.content for m in messages if m.role == "user"), "")
         self.calls.append({"system": system, "prompt": prompt, "model": model})
         if self.error:
             raise self.error
         text = self.payload if self.payload is not None else json.dumps(
             {"summary": "ok", "findings": ["f"], "confidence": 0.9}
         )
-        return Completion(
+        return Turn(
             text=text,
             provider=self.name,
             model=model,

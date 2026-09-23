@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Core concepts &#8212; AgentMesh</title>
+<meta name="description" content="Capabilities, YAML agent specs, runtime synthesis, executors and enforced output contracts.">
+<meta property="og:title" content="Core concepts &#8212; AgentMesh">
+<meta property="og:description" content="Capabilities, YAML agent specs, runtime synthesis, executors and enforced output contracts.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html" class="on">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Core concepts</h1>
+<p class="lede">Capabilities, specs, synthesis, executors, contracts. Five ideas explain the runtime.</p>
+
+<h2>The pipeline</h2>
+<div class="flowline">request &#8594; capabilities &#8594; match agents &#8594; <b>synthesize the gaps</b> &#8594; graph &#8594; tools &amp; data &#8594; output</div>
+<p>Everything runs through <code>agentmesh.core.runtime.run_project()</code>. The CLI and the
+FastAPI app are thin wrappers over it, so the two entry points cannot drift.</p>
+
+<h2>Capabilities</h2>
+<p>A request reduces to capabilities &#8212; <code>sql_analysis</code>, <code>pii_detection</code>,
+<code>report_generation</code>. Agents advertise what they cover. Nothing in the runtime hardcodes
+an agent name.</p>
+<div class="warn"><b>Known gap, and the biggest one.</b> Capability resolution is still substring
+keyword matching over a fixed table of 18 capabilities. A request about translation or legal review
+resolves to <code>report_generation</code> &#8212; wrong, and it reports no missing capability. This
+is the next thing to replace; see the <a href="roadmap.html">status page</a>.</div>
+
+<h2>Agents are YAML</h2>
+<pre><code><span class="c-key">id</span>: sql_analyzer_agent
+<span class="c-key">name</span>: SQL Analyzer Agent
+<span class="c-key">description</span>: Reviews SQL for correctness, safety and performance risks.
+<span class="c-key">capabilities</span>: [sql_analysis, query_review]
+<span class="c-key">tools</span>: [sql_analyze]
+<span class="c-key">depends_on</span>: []
+<span class="c-key">output_contract</span>:
+  <span class="c-key">format</span>: json
+  <span class="c-key">required_fields</span>: [findings, risk_level, suggested_changes, confidence]
+<span class="c-key">models</span>:
+  <span class="c-key">default</span>: anthropic/claude-opus-5
+  <span class="c-key">fallback</span>: [openai/gpt-4.1-mini]</code></pre>
+<p>Specs use <code>extra="forbid"</code>, so a typo'd key fails at load rather than being silently
+ignored. The spec <em>is</em> the prompt: description sets the role, capabilities scope the work,
+tools say what it can do, the contract defines the JSON it must return.</p>
+
+<h2>Synthesis</h2>
+<p>When a required capability has no matching agent, AgentMesh builds one and runs it. The gap is
+still reported in <code>missing_capabilities</code>, so nothing is hidden &#8212; the work just gets
+done.</p>
+<pre><code>&#9475; ID                       &#9475; Origin      &#9475; Level &#9475;
+&#9474; domain_research_agent    &#9474; synthesized &#9474;   0   &#9474;
+&#9474; option_generation_agent  &#9474; synthesized &#9474;   0   &#9474;
+&#9474; report_agent             &#9474; spec        &#9474;   1   &#9474;
+
+Synthesized agents are ephemeral. Re-run with --save-agents to keep them.</code></pre>
+<p>Kept agents land in the project's <code>agents/</code> directory as ordinary specs, so the next
+run loads them and synthesizes nothing. An agent you keep is indistinguishable from one you wrote.
+Adapting an existing agent creates a new <b>version</b> of it &#8212; see
+<a href="governance.html">Governance</a>.</p>
+
+<h2>Executors</h2>
+<p>Every spec names an executor; the default <code>generic</code> is model-backed and tool-using.
+Register your own when an agent needs real code:</p>
+<pre><code><span class="c-fn">@register_executor</span>(<span class="c-str">"sql_analyzer"</span>)
+<span class="c-key">class</span> SqlAnalyzerAgent(BaseAgent):
+    <span class="c-key">def</span> <span class="c-fn">run</span>(self, message, context):
+        ...</code></pre>
+<p>Retries, timing, token accounting and cost live in the call object the broker hands you, so any
+executor gets all of it free.</p>
+
+<h2>Output contracts</h2>
+<p><code>required_fields</code> is enforced. Missing fields are attached as
+<code>contract_violations</code> rather than quietly accepted; unparsable responses are flagged the
+same way with the raw text preserved.</p>
+<pre><code>{
+  <span class="c-key">"agent_id"</span>: <span class="c-str">"sql_analyzer_agent"</span>,
+  <span class="c-key">"tools_used"</span>: [<span class="c-str">"sql_analyze"</span>],
+  <span class="c-key">"contract_violations"</span>: [<span class="c-str">"risk_level"</span>, <span class="c-str">"confidence"</span>]
+}</code></pre><div class="pager"><a href="getting-started.html"><span>Previous</span>Getting started</a><a href="tools.html" style="text-align:right"><span>Next</span>Tools &amp; MCP</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

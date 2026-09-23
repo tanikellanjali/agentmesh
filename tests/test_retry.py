@@ -5,18 +5,19 @@ from agentmesh.core.agent_synthesizer import synthesize_agent
 from agentmesh.core.model_router import ModelBroker
 from agentmesh.core.telemetry import RunRecorder
 from agentmesh.providers.base import (
-    Completion,
     ProviderAuthError,
     ProviderError,
     ProviderRateLimited,
     ProviderRefusal,
     ProviderTransientError,
+    SingleShotMixin,
+    Turn,
     Usage,
 )
 from agentmesh.providers.retry import NO_RETRY, RetryOutcome, RetryPolicy, call_with_retry
 
 
-class FlakyProvider:
+class FlakyProvider(SingleShotMixin):
     """Fails `failures` times, then succeeds."""
 
     name = "flaky"
@@ -26,12 +27,12 @@ class FlakyProvider:
         self.error = error or ProviderTransientError("upstream hiccup")
         self.attempts = 0
 
-    def complete(self, *, system, prompt, model, max_tokens=4096, effort=None):
+    def converse(self, *, system, messages, tools=None, model="m", max_tokens=4096, effort=None):
         self.attempts += 1
         if self.remaining > 0:
             self.remaining -= 1
             raise self.error
-        return Completion(
+        return Turn(
             text='{"summary": "ok", "findings": [], "confidence": 0.9}',
             provider=self.name,
             model=model,

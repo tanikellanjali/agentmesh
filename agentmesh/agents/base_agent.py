@@ -6,6 +6,7 @@ from agentmesh.schemas.agent_spec import AgentSpec
 
 if TYPE_CHECKING:
     from agentmesh.core.model_router import ModelBroker
+    from agentmesh.core.run_context import RunContext
 
 
 class BaseAgent:
@@ -15,9 +16,15 @@ class BaseAgent:
     ``RunRecorder``, keyed by agent id - executors do not track them.
     """
 
-    def __init__(self, spec: AgentSpec, broker: "ModelBroker | None" = None) -> None:
+    def __init__(
+        self,
+        spec: AgentSpec,
+        broker: "ModelBroker | None" = None,
+        run_context: "RunContext | None" = None,
+    ) -> None:
         self.spec = spec
         self.broker = broker
+        self.run_context = run_context
 
     def run(self, message: str, context: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError

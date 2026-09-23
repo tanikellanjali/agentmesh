@@ -27,7 +27,7 @@ models:
   fallback:
     - openai/gpt-4.1-mini
 tools:
-  - agentflow_sql_analyzer
+  - sql_analyze
 fallback_agents: []
 troubleshooting:
   enabled: true

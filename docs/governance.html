@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Governance &amp; access &#8212; AgentMesh</title>
+<meta name="description" content="Per-agent permissions, the invisible-vs-blocked distinction that stops synthesis bypassing policy, versioning, and why a library cannot enforce any of it.">
+<meta property="og:title" content="Governance &amp; access &#8212; AgentMesh">
+<meta property="og:description" content="Per-agent permissions, the invisible-vs-blocked distinction that stops synthesis bypassing policy, versioning, and why a library cannot enforce any of it.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html" class="on">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Governance &amp; access</h1>
+<p class="lede">The problem this exists for: teams grow duplicate agents nobody can see, govern or
+reuse. Identity and policy are carried from the first call, not bolted on later.</p>
+
+<h2>Two dimensions, not one</h2>
+<p class="sub">"Granular" means actions and capacity are separate. Conflating them is why most
+permission models end up as a single useless boolean.</p>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>view</th><th>use</th><th>fork</th><th>version</th><th>edit</th><th>publish</th></tr></thead>
+<tbody>
+<tr><td><b>Agent</b></td><td>read its spec</td><td>run it</td><td>copy it</td><td>make v2</td><td>change v1</td><td>change visibility</td></tr>
+<tr><td><b>Tool</b></td><td>see it</td><td>call it</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td></tr>
+<tr><td><b>Data source</b></td><td>see schema</td><td>query it</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td></tr>
+<tr><td><b>Model</b></td><td>see it</td><td>spend on it</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td></tr>
+</tbody></table></div>
+<p><b>Capacity</b> is the other axis: max spend, which models, how many runs, which data scopes.
+"May use <code>financial_agent</code>, on Haiku only, capped at \$5/day" is a normal ask and is not
+expressible as a boolean.</p>
+
+<h2>Invisible vs blocked &#8212; the distinction that matters</h2>
+<p class="sub">If denied agents were simply filtered out, the resolver could not tell "nothing
+exists" from "you are not allowed", and would synthesize a replacement. Every denial would become a
+bypass.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Principal can</th><th>Result</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>not <b>view</b></td><td>Invisible &#8212; synthesis proceeds freely</td><td>No metadata leak: they are never told it exists</td></tr>
+<tr><td><b>view</b> but not <b>use</b></td><td>Blocked, explained, offer to create their own</td><td>Enforcement holds; the user understands why</td></tr>
+<tr><td><b>view</b> and <b>use</b></td><td>Reused as-is</td><td>The point of a registry</td></tr>
+</tbody></table></div>
+<pre><code>result = catalog.search(principal, capabilities=[<span class="c-str">"financial_analysis"</span>])
+result.usable    <span class="c-com"># agents they may run</span>
+result.blocked   <span class="c-com"># exist, visible, denied -> do NOT synthesize around these</span></code></pre>
+
+<h2>Agents carry identity</h2>
+<pre><code><span class="c-key">id</span>: sql_analyzer_agent
+<span class="c-key">version</span>: 2
+<span class="c-key">owner</span>: data-platform
+<span class="c-key">visibility</span>: org          <span class="c-com"># private | team | org | public</span>
+<span class="c-key">derived_from</span>: sql_analyzer_agent@1</code></pre>
+<p>Adapting an agent creates a <b>new version of the same agent</b>, not a new agent. One identity,
+one history, and every run records which version executed.</p>
+
+<h2>Tools are the real boundary</h2>
+<div class="note">An agent is a prompt and a contract. A <b>tool</b> is what touches the database,
+the filesystem, the payment API. If someone can fork an agent and point it at tools they already
+have, agent-level permission bought nothing. Agent permissions are <b>governance</b>; tool and data
+permissions are <b>security</b>. Enforcement belongs at tool invocation &#8212; one chokepoint.</div>
+
+<h2>A library cannot enforce this</h2>
+<p>AgentMesh reads YAML from disk and uses your own key. If policy lives in that YAML, you edit the
+YAML. Every check is advisory. The default authorizer says so plainly:</p>
+<pre><code>Decision(allowed=<span class="c-key">True</span>, reason=<span class="c-str">"no policy configured (AllowAll)"</span>)</code></pre>
+<p>Real enforcement needs a host that owns the catalog and runs the mesh server-side. The library
+defines three interfaces so that host is buildable without re-architecting anything:</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Interface</th><th>Library default</th><th>Host application</th></tr></thead>
+<tbody>
+<tr><td><code>Catalog</code></td><td>YAML on disk</td><td>Database with versions and ownership</td></tr>
+<tr><td><code>Authorizer</code></td><td><code>AllowAll</code></td><td>Policy engine, identity, SSO</td></tr>
+<tr><td><code>TelemetrySink</code></td><td>Logger</td><td>Rows in a table, dashboards</td></tr>
+</tbody></table></div>
+<pre><code>run_project(
+    <span class="c-str">"data_ops"</span>, message,
+    principal=Principal(id=<span class="c-str">"anjali"</span>, org=<span class="c-str">"acme"</span>, teams=(<span class="c-str">"data"</span>,)),
+    authorizer=my_policy_engine,
+)</code></pre>
+<p>Every model call, tool run and query is attributed to that principal &#8212; which turns the
+telemetry into an audit trail rather than debug logs.</p><div class="pager"><a href="providers.html"><span>Previous</span>Models &amp; credentials</a><a href="observability.html" style="text-align:right"><span>Next</span>Cost &amp; reliability</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

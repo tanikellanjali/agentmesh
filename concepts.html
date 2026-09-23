@@ -20,7 +20,7 @@
 <p class="lede">Capabilities, specs, synthesis, executors, contracts. Five ideas explain the runtime.</p>
 
 <h2>The pipeline</h2>
-<div class="flowline">request &#8594; capabilities &#8594; match agents &#8594; <b>synthesize the gaps</b> &#8594; graph &#8594; tools &amp; data &#8594; output</div>
+<div class="flowline">request &#8594; <b>plan: reuse / adapt / create</b> &#8594; graph &#8594; tools &amp; data &#8594; output</div>
 <p>Everything runs through <code>agentmesh.core.runtime.run_project()</code>. The CLI and the
 FastAPI app are thin wrappers over it, so the two entry points cannot drift.</p>
 
@@ -28,10 +28,10 @@ FastAPI app are thin wrappers over it, so the two entry points cannot drift.</p>
 <p>A request reduces to capabilities &#8212; <code>sql_analysis</code>, <code>pii_detection</code>,
 <code>report_generation</code>. Agents advertise what they cover. Nothing in the runtime hardcodes
 an agent name.</p>
-<div class="warn"><b>Known gap, and the biggest one.</b> Capability resolution is still substring
-keyword matching over a fixed table of 18 capabilities. A request about translation or legal review
-resolves to <code>report_generation</code> &#8212; wrong, and it reports no missing capability. This
-is the next thing to replace; see the <a href="roadmap.html">status page</a>.</div>
+<p>Capabilities are named from the request itself &#8212; there is no fixed vocabulary. A request
+to "translate this contract and check it for legal risk" yields <code>translation</code> and
+<code>legal_risk_review</code>, and the resolver decides whether an existing agent covers them.
+See <a href="resolver.html">Resolution</a>.</p>
 
 <h2>Agents are YAML</h2>
 <pre><code><span class="c-key">id</span>: sql_analyzer_agent

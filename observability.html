@@ -16,7 +16,7 @@
   <button id="menu" aria-label="Menu">Menu</button>
   <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
 </div></nav>
-<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html" class="on">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Cost &amp; reliability</h1>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="resolver.html">Resolution</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html" class="on">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Cost &amp; reliability</h1>
 <p class="lede">Every model call and every query is retried where sensible, recorded individually,
 and counted against a ceiling only if you set one.</p>
 
@@ -68,13 +68,25 @@ exceed the cap; use --max-workers 1 for a strict ceiling.</code></pre>
 <p>An agent whose call fails after its retries returns a structured error with
 <code>confidence: 0.0</code>, and the rest of the graph continues. You get a partial answer plus a
 clear record of what broke, instead of a stack trace and nothing.</p>
+<h2>Timeouts</h2>
+<p>Every model call carries a timeout, defaulting to 120 seconds and configurable per model in the
+routing table. A timeout is treated as transient, so it retries under the same policy.</p>
+<pre><code><span class="c-key">anthropic/claude-opus-5</span>:
+  <span class="c-key">timeout_s</span>: 60</code></pre>
+<div class="note">A timeout has a default where a budget deliberately does not: an unbounded hang is
+a defect, not a policy choice.</div>
 
-<h2>Not built yet</h2>
-<ul class="tight">
-<li><b>Per-call timeouts</b> &#8212; a hung provider currently blocks its level</li>
-<li><b>Run persistence</b> &#8212; telemetry is structured but not written to <code>.runs/</code></li>
-<li><b>OpenTelemetry export</b> &#8212; so traces land in Langfuse or LangSmith rather than a dashboard we maintain</li>
-</ul><div class="pager"><a href="governance.html"><span>Previous</span>Governance &amp; access</a><a href="cli.html" style="text-align:right"><span>Next</span>CLI commands</a></div></main></div>
+<h2>Run persistence</h2>
+<pre><code>agentmesh run -p data_ops <span class="c-str">"..."</span> --save-run</code></pre>
+<pre><code>.runs/2467afcf710e/
+  run.json             <span class="c-com"># request, plan, graph, usage</span>
+  llm_calls.jsonl      <span class="c-com"># one row per model call</span>
+  tool_runs.jsonl
+  data_ops.jsonl
+  agent_outputs.jsonl
+  final_response.json</code></pre>
+<p>Split so each file is useful alone, and JSONL so a run loads straight into a table.</p>
+<div class="pager"><a href="governance.html"><span>Previous</span>Governance &amp; access</a><a href="cli.html" style="text-align:right"><span>Next</span>CLI commands</a></div></main></div>
 <footer><div class="wrap foot">
   <span>MIT licensed</span>
   <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>

@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cost &amp; reliability &#8212; AgentMesh</title>
-<meta name="description" content="Retry policy, per-call token and cost telemetry, JSON logs, and opt-in budget ceilings.">
+<meta name="description" content="Retry policy, per-call token and cost telemetry, JSON logs, and opt-in budget ceilings for both models and data.">
 <meta property="og:title" content="Cost &amp; reliability &#8212; AgentMesh">
-<meta property="og:description" content="Retry policy, per-call token and cost telemetry, JSON logs, and opt-in budget ceilings.">
+<meta property="og:description" content="Retry policy, per-call token and cost telemetry, JSON logs, and opt-in budget ceilings for both models and data.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
 <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -14,14 +14,13 @@
 <nav class="top"><div class="wrap nav-in">
   <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
   <button id="menu" aria-label="Menu">Menu</button>
-  <div class="nav-links"><a href="getting-started.html" class="on">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
 </div></nav>
-<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="graph.html">The agent graph</a><a href="providers.html">Models & credentials</a><a href="observability.html" class="on">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status & roadmap</a></div></aside><main><h1>Cost &amp; reliability</h1>
-<p class="lede">Every model call is retried on transient failures, recorded individually, and counted
-against a ceiling only if you set one.</p>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html" class="on">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Cost &amp; reliability</h1>
+<p class="lede">Every model call and every query is retried where sensible, recorded individually,
+and counted against a ceiling only if you set one.</p>
 
 <h2>Retries</h2>
-<p>Exponential backoff with jitter. What matters is <i>what</i> gets retried:</p>
 <div class="tablewrap"><table>
 <thead><tr><th>Failure</th><th>Retried</th><th>Why</th></tr></thead>
 <tbody>
@@ -33,60 +32,49 @@ against a ceiling only if you set one.</p>
 <tr><td>4xx bad request</td><td class="no">No</td><td>The request is malformed</td></tr>
 </tbody></table></div>
 <pre><code>agentmesh run -p data_ops <span class="c-str">"..."</span> --max-attempts 5   <span class="c-com"># default 3; 1 disables</span></code></pre>
-<p>Retries happen inside the metered call object, so an executor gets them without writing any retry
-code, and the attempt count lands in telemetry either way.</p>
 
 <h2>Per-call telemetry</h2>
-<p>Records are per <b>model call</b>, not per agent &#8212; an agent that retried three times shows three
-attempts and the tokens each one burned.</p>
-<pre><code>&#9475; Agent              &#9475; Model                   &#9475; Calls &#9475; Retries &#9475;  In &#9475; Out &#9475; Cost $ &#9475;
-&#9474; data_quality_agent &#9474; anthropic/claude-opus-5 &#9474;     1 &#9474;       0 &#9474;  23 &#9474;  30 &#9474; 0.0009 &#9474;
-&#9474; sql_analyzer_agent &#9474; anthropic/claude-opus-5 &#9474;     1 &#9474;       0 &#9474;  23 &#9474;  30 &#9474; 0.0009 &#9474;
-&#9474; report_agent       &#9474; anthropic/claude-opus-5 &#9474;     1 &#9474;       0 &#9474; 208 &#9474;  30 &#9474; 0.0018 &#9474;
-&#9474; <b>total</b>              &#9474;                         &#9474;     3 &#9474;       0 &#9474; 254 &#9474;  90 &#9474; <b>0.0035</b> &#9474;</code></pre>
-
-<h3>Structured logs</h3>
+<p class="sub">Records are per model call, not per agent &#8212; an agent that retried three times
+shows three attempts and the tokens each burned. Tool runs and data queries are recorded too.</p>
+<pre><code>&#9475; Agent              &#9475; Calls &#9475; Retries &#9475;  In &#9475; Out &#9475; Cost $ &#9475; Tools       &#9475;
+&#9474; data_quality_agent &#9474;     2 &#9474;       0 &#9474;  50 &#9474;  68 &#9474; 0.0020 &#9474; query_data  &#9474;
+&#9474; sql_analyzer_agent &#9474;     2 &#9474;       0 &#9474;  46 &#9474;  60 &#9474; 0.0018 &#9474; sql_analyze &#9474;
+&#9474; report_agent       &#9474;     1 &#9474;       0 &#9474; 208 &#9474;  30 &#9474; 0.0018 &#9474; -           &#9474;
+&#9474; <b>total</b>              &#9474;     5 &#9474;       0 &#9474; 304 &#9474; 158 &#9474; <b>0.0056</b> &#9474; 3 run       &#9474;</code></pre>
 <pre><code>agentmesh run -p data_ops <span class="c-str">"..."</span> --json-logs --log-level INFO</code></pre>
-<pre><code>{<span class="c-key">"ts"</span>: <span class="c-str">"2026-09-23T02:08:49"</span>, <span class="c-key">"level"</span>: <span class="c-str">"INFO"</span>, <span class="c-key">"logger"</span>: <span class="c-str">"agentmesh.llm"</span>,
- <span class="c-key">"run_id"</span>: <span class="c-str">"2467afcf710e"</span>, <span class="c-key">"call_id"</span>: <span class="c-str">"4eabd3f8fe8b"</span>,
- <span class="c-key">"agent_id"</span>: <span class="c-str">"sql_analyzer_agent"</span>, <span class="c-key">"provider"</span>: <span class="c-str">"anthropic"</span>,
- <span class="c-key">"model_key"</span>: <span class="c-str">"anthropic/claude-opus-5"</span>, <span class="c-key">"model"</span>: <span class="c-str">"claude-opus-5"</span>,
+<pre><code>{<span class="c-key">"run_id"</span>: <span class="c-str">"2467afcf710e"</span>, <span class="c-key">"call_id"</span>: <span class="c-str">"4eabd3f8fe8b"</span>,
+ <span class="c-key">"agent_id"</span>: <span class="c-str">"sql_analyzer_agent"</span>, <span class="c-key">"model_key"</span>: <span class="c-str">"anthropic/claude-opus-5"</span>,
  <span class="c-key">"attempts"</span>: 1, <span class="c-key">"outcome"</span>: <span class="c-str">"ok"</span>, <span class="c-key">"duration_ms"</span>: 812.4,
- <span class="c-key">"input_tokens"</span>: 8, <span class="c-key">"output_tokens"</span>: 30, <span class="c-key">"cost"</span>: 0.00079,
- <span class="c-key">"error"</span>: null, <span class="c-key">"retry_errors"</span>: []}</code></pre>
-<p><code>outcome</code> is one of <code>ok</code>, <code>error</code>, <code>refusal</code>, or
-<code>unparsable</code>. Intermediate failures are kept in <code>retry_errors</code> rather than discarded.</p>
+ <span class="c-key">"input_tokens"</span>: 8, <span class="c-key">"output_tokens"</span>: 30, <span class="c-key">"cost"</span>: 0.00079}</code></pre>
+<p><code>outcome</code> is <code>ok</code>, <code>tool_use</code>, <code>error</code>,
+<code>refusal</code> or <code>unparsable</code>. Intermediate failures are kept in
+<code>retry_errors</code> rather than discarded.</p>
 
 <h2>Budgets are yours to set</h2>
-<div class="note"><b>There is no default spending cap.</b> AgentMesh will not decide your budget for you.
-A ceiling exists only when you pass one.</div>
-<pre><code>agentmesh run -p data_ops <span class="c-str">"..."</span> --max-cost 0.50</code></pre>
-<p>When the ceiling is reached the run stops and exits with code <code>2</code>:</p>
-<pre><code>Budget stop: Run ae48555b0f9e reached the $0.5000 ceiling
-(spent $0.5031) before agent 'report_agent'.</code></pre>
+<div class="note"><b>There is no default spending cap.</b> AgentMesh will not decide your budget.
+A ceiling exists only when you pass one &#8212; separately for models (<code>max_cost</code>) and
+data (<code>max_data_cost</code>).</div>
+<pre><code>agentmesh run -p data_ops <span class="c-str">"..."</span> --max-cost 0.50   <span class="c-com"># exit code 2 if it stops</span></code></pre>
+<pre><code>Budget stop: Run ae48555b0f9e reached the \$0.5000 ceiling
+(spent \$0.5031) before agent 'report_agent'.</code></pre>
 <h3>The overshoot caveat</h3>
-<p>The cap blocks <i>new</i> calls. Agents already in flight are not cancelled, so a level running several
-agents concurrently can overshoot by up to one level's spend. AgentMesh says so rather than hiding it:</p>
-<pre><code>Budget overshot: spent $0.0017 of $0.0010. Concurrent agents in one level can
+<p>The cap blocks <em>new</em> calls; agents already in flight are not cancelled, so a level running
+several agents concurrently can overshoot by up to one level's spend. AgentMesh says so rather than
+hiding it:</p>
+<pre><code>Budget overshot: spent \$0.0017 of \$0.0010. Concurrent agents in one level can
 exceed the cap; use --max-workers 1 for a strict ceiling.</code></pre>
-<p>Add <code>--max-workers 1</code> when the ceiling must be exact.</p>
 
 <h2>Failures don't stop the mesh</h2>
-<p>An agent whose model call fails after its retries returns a structured error output with
-<code>confidence: 0.0</code>, and the rest of the graph continues. You get a partial answer plus a clear
-record of what broke, instead of a stack trace and nothing.</p>
-<pre><code>{
-  <span class="c-key">"agent_id"</span>: <span class="c-str">"sql_analyzer_agent"</span>,
-  <span class="c-key">"summary"</span>: <span class="c-str">"SQL Analyzer Agent could not complete: OpenAI rate limited..."</span>,
-  <span class="c-key">"confidence"</span>: 0.0,
-  <span class="c-key">"error"</span>: <span class="c-str">"OpenAI rate limited the request: ..."</span>
-}</code></pre>
+<p>An agent whose call fails after its retries returns a structured error with
+<code>confidence: 0.0</code>, and the rest of the graph continues. You get a partial answer plus a
+clear record of what broke, instead of a stack trace and nothing.</p>
 
 <h2>Not built yet</h2>
 <ul class="tight">
 <li><b>Per-call timeouts</b> &#8212; a hung provider currently blocks its level</li>
-<li><b>Run persistence</b> &#8212; telemetry is structured but not yet written to <code>.runs/</code></li>
-</ul><div class="pager"><a href="providers.html"><span>Previous</span>Models & credentials</a><a href="cli.html" style="text-align:right"><span>Next</span>CLI commands</a></div></main></div>
+<li><b>Run persistence</b> &#8212; telemetry is structured but not written to <code>.runs/</code></li>
+<li><b>OpenTelemetry export</b> &#8212; so traces land in Langfuse or LangSmith rather than a dashboard we maintain</li>
+</ul><div class="pager"><a href="governance.html"><span>Previous</span>Governance &amp; access</a><a href="cli.html" style="text-align:right"><span>Next</span>CLI commands</a></div></main></div>
 <footer><div class="wrap foot">
   <span>MIT licensed</span>
   <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>

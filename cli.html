@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CLI reference &#8212; AgentMesh</title>
-<meta name="description" content="Every AgentMesh command, the full flag list for run, exit codes, and common recipes.">
+<meta name="description" content="Every AgentMesh command, the full flag list for run, exit codes and common recipes.">
 <meta property="og:title" content="CLI reference &#8212; AgentMesh">
-<meta property="og:description" content="Every AgentMesh command, the full flag list for run, exit codes, and common recipes.">
+<meta property="og:description" content="Every AgentMesh command, the full flag list for run, exit codes and common recipes.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
 <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -14,10 +14,9 @@
 <nav class="top"><div class="wrap nav-in">
   <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
   <button id="menu" aria-label="Menu">Menu</button>
-  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html" class="on">CLI</a><a href="api.html">API</a><a href="roadmap.html">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
 </div></nav>
-<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="graph.html">The agent graph</a><a href="providers.html">Models & credentials</a><a href="observability.html">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html" class="on">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status & roadmap</a></div></aside><main><h1>CLI reference</h1>
-<p class="lede">Every command, and every flag on <code>run</code>.</p>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html" class="on">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>CLI reference</h1>
 <pre><code>agentmesh --help
 agentmesh --version
 agentmesh help-functions   <span class="c-com"># built-in catalog with examples</span></code></pre>
@@ -28,17 +27,16 @@ agentmesh help-functions   <span class="c-com"># built-in catalog with examples<
 <tbody>
 <tr><td><code>run</code></td><td>Resolve needs, select or synthesize agents, execute the graph, report tokens and cost</td></tr>
 <tr><td><code>list-projects</code></td><td>List available spec-pack projects</td></tr>
-<tr><td><code>list-agents</code></td><td>List a project's agents, capabilities, and enabled state</td></tr>
+<tr><td><code>list-agents</code></td><td>List a project's agents, capabilities and enabled state</td></tr>
 <tr><td><code>validate-spec</code></td><td>Load and validate every YAML spec in a project</td></tr>
-<tr><td><code>init-project</code></td><td>Draft a new starter pack from a description, confirm, then write it</td></tr>
+<tr><td><code>init-project</code></td><td>Draft a starter pack from a description, confirm, then write it</td></tr>
 <tr><td><code>configure-models</code></td><td>Prompt for API keys and defaults; merges into <code>.env</code></td></tr>
 <tr><td><code>check-models</code></td><td>Verify providers resolve; <code>--live</code> sends one real request each</td></tr>
-<tr><td><code>list-models</code></td><td>Show routing keys, model ids, availability, and per-token cost</td></tr>
+<tr><td><code>list-models</code></td><td>Routing keys, model ids, availability and per-token cost</td></tr>
 <tr><td><code>help-functions</code></td><td>Print the command catalog with examples</td></tr>
 </tbody></table></div>
 
 <h2><code>agentmesh run</code></h2>
-<pre><code>agentmesh run --project data_ops <span class="c-str">"Review this SQL query for quality risks"</span></code></pre>
 <div class="tablewrap"><table>
 <thead><tr><th>Flag</th><th>Default</th><th>Purpose</th></tr></thead>
 <tbody>
@@ -64,7 +62,7 @@ agentmesh help-functions   <span class="c-com"># built-in catalog with examples<
 <tr><td><code>2</code></td><td>Stopped on the budget ceiling you set</td></tr>
 </tbody></table></div>
 
-<h2>Common recipes</h2>
+<h2>Recipes</h2>
 <pre><code><span class="c-com"># fully offline, deterministic, no credentials</span>
 agentmesh run -p data_ops <span class="c-str">"..."</span> --provider mock
 
@@ -79,7 +77,7 @@ agentmesh run -p data_ops <span class="c-str">"Research the options"</span> --sa
 agentmesh run -p data_ops <span class="c-str">"..."</span> --json-logs --log-level INFO
 
 <span class="c-com"># validate every spec before committing</span>
-agentmesh validate-spec -p data_ops</code></pre><div class="pager"><a href="observability.html"><span>Previous</span>Cost & reliability</a><a href="api.html" style="text-align:right"><span>Next</span>HTTP API</a></div></main></div>
+agentmesh validate-spec -p data_ops</code></pre><div class="pager"><a href="observability.html"><span>Previous</span>Cost &amp; reliability</a><a href="api.html" style="text-align:right"><span>Next</span>HTTP API</a></div></main></div>
 <footer><div class="wrap foot">
   <span>MIT licensed</span>
   <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>

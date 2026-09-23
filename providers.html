@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Models &amp; credentials &#8212; AgentMesh</title>
-<meta name="description" content="Claude and OpenAI providers, routing keys, credential handling, fallback chains, and writing your own adapter.">
+<meta name="description" content="Claude and OpenAI providers, routing keys, credential precedence, fallback chains and writing your own adapter.">
 <meta property="og:title" content="Models &amp; credentials &#8212; AgentMesh">
-<meta property="og:description" content="Claude and OpenAI providers, routing keys, credential handling, fallback chains, and writing your own adapter.">
+<meta property="og:description" content="Claude and OpenAI providers, routing keys, credential precedence, fallback chains and writing your own adapter.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
 <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -14,92 +14,67 @@
 <nav class="top"><div class="wrap nav-in">
   <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
   <button id="menu" aria-label="Menu">Menu</button>
-  <div class="nav-links"><a href="getting-started.html" class="on">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
 </div></nav>
-<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="graph.html">The agent graph</a><a href="providers.html" class="on">Models & credentials</a><a href="observability.html">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status & roadmap</a></div></aside><main><h1>Models &amp; credentials</h1>
-<p class="lede">You choose the provider and the model, and you supply the keys. AgentMesh routes each
-agent to one, and never substitutes a fake model when the real one is unavailable.</p>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html" class="on">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Models &amp; credentials</h1>
+<p class="lede">You choose the provider and the model and supply the keys. AgentMesh routes each
+agent, and never substitutes a fake model when the real one is unavailable.</p>
 
-<h2>Built-in providers</h2>
+<h2>Providers</h2>
 <div class="tablewrap"><table>
 <thead><tr><th>Name</th><th>Backend</th><th>Requires</th></tr></thead>
 <tbody>
-<tr><td><code>anthropic</code></td><td>Claude, via the official <code>anthropic</code> SDK</td><td><code>ANTHROPIC_API_KEY</code> + <code>.[anthropic]</code></td></tr>
-<tr><td><code>openai</code></td><td>OpenAI, via the official <code>openai</code> SDK</td><td><code>OPENAI_API_KEY</code> + <code>.[openai]</code></td></tr>
-<tr><td><code>mock</code></td><td>Deterministic, no network</td><td>nothing</td></tr>
+<tr><td><code>anthropic</code></td><td>Claude, official SDK</td><td><code>ANTHROPIC_API_KEY</code> + <code>[anthropic]</code></td></tr>
+<tr><td><code>openai</code></td><td>OpenAI, official SDK</td><td><code>OPENAI_API_KEY</code> + <code>[openai]</code></td></tr>
+<tr><td><code>mock</code></td><td>Deterministic, drives the real tool loop</td><td>nothing</td></tr>
 <tr><td><code>local</code></td><td>Alias for <code>mock</code> until an Ollama adapter lands</td><td>nothing</td></tr>
 </tbody></table></div>
-<p>Both SDKs are optional and lazily imported. A missing SDK or a missing key produces a named error, not
-an <code>ImportError</code> halfway through a run.</p>
+<p>Both SDKs are lazily imported. A missing SDK or key gives a named error, not an
+<code>ImportError</code> halfway through a run.</p>
 
-<h2>Supplying credentials</h2>
-<pre><code>agentmesh configure-models</code></pre>
-<p>Prompts for the keys you have plus an optional default provider and model, then merges them into
-<code>.env</code>. Keys already in the file are preserved, so adding OpenAI later will not wipe your
-Anthropic key. <code>.env</code> is gitignored.</p>
-<p>Credentials are read from <code>.env</code> and the process environment. Precedence for choosing a model:</p>
+<h2>Precedence</h2>
 <ol class="tight">
 <li><code>--provider</code> / <code>--model</code> on the command</li>
 <li><code>AGENTMESH_PROVIDER</code> / <code>AGENTMESH_MODEL</code> in the environment</li>
-<li>The agent spec's own <code>models.default</code>, then each <code>models.fallback</code></li>
+<li>The agent spec's <code>models.default</code>, then each <code>models.fallback</code></li>
 </ol>
 
-<h2>Verifying they work</h2>
-<pre><code>agentmesh check-models --project data_ops</code></pre>
-<pre><code>&#9475; Routing key              &#9475; Provider  &#9475; Credentials &#9475;
-&#9474; anthropic/claude-opus-5  &#9474; anthropic &#9474; ok          &#9474;
-&#9474; mock/deterministic       &#9474; mock      &#9474; ok          &#9474;
-&#9474; openai/gpt-4.1-mini      &#9474; openai    &#9474; OPENAI_A... &#9474;</code></pre>
-<p>Add <code>--live</code> to send one tiny real request per provider, which is the only way to tell a
-well-formed key from a working one.</p>
-
 <h2>Model routing</h2>
-<p>Each project has a <code>models/model_routing.yaml</code>. A stable routing key maps to a provider, the
-provider's real model id, and per-token cost &#8212; so a vendor renaming a model is a one-line change,
-not a sweep through every agent spec.</p>
+<p>A stable routing key maps to a provider, the real model id, and per-token cost &#8212; so a
+vendor renaming a model is a one-line change, not a sweep through every spec.</p>
 <pre><code><span class="c-key">models</span>:
   <span class="c-key">anthropic/claude-opus-5</span>:
     <span class="c-key">provider</span>: anthropic
     <span class="c-key">model</span>: claude-opus-5
     <span class="c-key">cost_per_1k_input_tokens</span>: 0.005
     <span class="c-key">cost_per_1k_output_tokens</span>: 0.025
-    <span class="c-key">max_tokens</span>: 4096
-  <span class="c-key">openai/gpt-4.1-mini</span>:
-    <span class="c-key">provider</span>: openai
-    <span class="c-key">model</span>: gpt-4.1-mini
-    <span class="c-key">cost_per_1k_input_tokens</span>: 0.0004
-    <span class="c-key">cost_per_1k_output_tokens</span>: 0.0016</code></pre>
-<div class="warn"><b>Verify the pricing.</b> The numbers shipped in the example pack are a starting point.
+    <span class="c-key">max_tokens</span>: 4096</code></pre>
+<div class="warn"><b>Verify the pricing.</b> The numbers in the example pack are a starting point.
 Check them against each vendor's current price list before trusting a cost report.</div>
 
 <h2>Fallback chains actually degrade</h2>
-<p>An agent's <code>models.fallback</code> list is tried in order. A provider that cannot be constructed
-&#8212; missing SDK, missing key &#8212; is skipped for the next candidate.</p>
-<pre><code><span class="c-key">models</span>:
-  <span class="c-key">default</span>: anthropic/claude-opus-5
-  <span class="c-key">fallback</span>:
-    - openai/gpt-4.1-mini</code></pre>
-<p>If <i>nothing</i> in the chain is usable, the run stops and tells you every candidate it tried:</p>
+<p>An agent's <code>models.fallback</code> list is tried in order; a provider that cannot be
+constructed is skipped for the next candidate. If nothing works, the run stops and says what it
+tried:</p>
 <pre><code>No usable model for agent 'sql_analyzer_agent'
-  (anthropic/claude-opus-5 -> anthropic: ANTHROPIC_API_KEY is not set.;
-   openai/gpt-4.1-mini -> openai: OPENAI_API_KEY is not set.).
+  (anthropic/claude-opus-5 -&gt; anthropic: ANTHROPIC_API_KEY is not set.;
+   openai/gpt-4.1-mini -&gt; openai: OPENAI_API_KEY is not set.).
 Run `agentmesh configure-models`, or use --provider mock to run offline.</code></pre>
-<div class="note"><b>The chain never ends at a mock.</b> Degrading to fake output would make a broken
-configuration look like a working one. Use <code>--provider mock</code> when you want that, explicitly.</div>
+<div class="note"><b>The chain never ends at a mock.</b> Degrading to fake output would make a
+broken configuration look like a working one. Use <code>--provider mock</code> when you want that,
+explicitly.</div>
 
 <h2>Writing a provider</h2>
-<p>A provider implements one method and returns usage alongside the text:</p>
-<pre><code><span class="c-key">from</span> agentmesh.providers <span class="c-key">import</span> register_provider
-
-<span class="c-key">class</span> MyProvider:
+<pre><code><span class="c-key">class</span> MyProvider(SingleShotMixin):
     name = <span class="c-str">"my-provider"</span>
 
-    <span class="c-key">def</span> <span class="c-fn">complete</span>(self, *, system, prompt, model, max_tokens=4096, effort=None):
-        <span class="c-key">return</span> Completion(text=..., provider=self.name, model=model, usage=Usage(...))
+    <span class="c-key">def</span> <span class="c-fn">converse</span>(self, *, system, messages, tools=<span class="c-key">None</span>, model, max_tokens=4096, effort=<span class="c-key">None</span>):
+        <span class="c-key">return</span> Turn(text=..., provider=self.name, model=model,
+                    tool_calls=[...], usage=Usage(...))
 
 register_provider(<span class="c-str">"my-provider"</span>, MyProvider)</code></pre>
-<p>Raise <code>ProviderTransientError</code> for anything worth retrying and <code>ProviderAuthError</code>
-for anything that isn't &#8212; see <a href="observability.html">Cost &amp; reliability</a>.</p><div class="pager"><a href="graph.html"><span>Previous</span>The agent graph</a><a href="observability.html" style="text-align:right"><span>Next</span>Cost & reliability</a></div></main></div>
+<p>Raise <code>ProviderTransientError</code> for anything worth retrying and
+<code>ProviderAuthError</code> for anything that is not.</p><div class="pager"><a href="graph.html"><span>Previous</span>Execution &amp; graph</a><a href="governance.html" style="text-align:right"><span>Next</span>Governance &amp; access</a></div></main></div>
 <footer><div class="wrap foot">
   <span>MIT licensed</span>
   <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>

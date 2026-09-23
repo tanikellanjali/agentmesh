@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentMesh &#8212; spec-driven agent runtime</title>
-<meta name="description" content="An open-source Python runtime that turns a user question into a graph of agents. YAML specs, dynamic synthesis, per-call cost telemetry.">
+<meta name="description" content="Open-source Python runtime that turns a question into a graph of agents with real tools, your own data, and per-call cost accounting.">
 <meta property="og:title" content="AgentMesh &#8212; spec-driven agent runtime">
-<meta property="og:description" content="An open-source Python runtime that turns a user question into a graph of agents. YAML specs, dynamic synthesis, per-call cost telemetry.">
+<meta property="og:description" content="Open-source Python runtime that turns a question into a graph of agents with real tools, your own data, and per-call cost accounting.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
 <link rel="stylesheet" href="assets/site.css">
 </head>
@@ -14,103 +14,113 @@
 <nav class="top"><div class="wrap nav-in">
   <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
   <button id="menu" aria-label="Menu">Menu</button>
-  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
 </div></nav>
 <header class="page"><div class="wrap">
 <h1>A user question in.<br>A graph of <span style="color:var(--accent)">agents</span> out.</h1>
 <p class="lede">AgentMesh is an open-source Python runtime for building internal agent meshes.
-Agents are YAML specs, not classes. Capabilities nothing covers are synthesized at runtime.
-Every model call is retried, costed, and logged.</p>
-<div class="flowline">user request &#8594; required capabilities &#8594; <b>matched or synthesized agents</b> &#8594; dependency graph &#8594; structured output</div>
+Agents are YAML specs that call real tools over your own data. Capabilities nothing covers
+are synthesized at runtime. Every model call and every query is costed.</p>
+<div class="flowline">request &#8594; capabilities &#8594; <b>matched or synthesized agents</b> &#8594; dependency graph &#8594; tools &amp; data &#8594; structured output</div>
 <div class="cta">
   <a class="btn primary" href="getting-started.html">Get started</a>
   <a class="btn" href="https://github.com/tanikellanjali/agentmesh">View source</a>
-  <span class="install">$ <b>pip install -e ".[dev,providers]"</b></span>
+  <span class="install">$ <b>pip install -e ".[dev,all]"</b></span>
 </div>
 </div></header>
 
-<div class="wrap" style="padding:56px 0 20px">
+<div class="wrap" style="padding:52px 0 20px">
 <h2 style="margin-top:0">What it does</h2>
-<p class="sub">The runtime is the product. The CLI and the FastAPI wrapper are two doors into the same
-<code>run_project()</code> call, so they cannot drift apart.</p>
+<p class="sub">The runtime is the product. The CLI and the FastAPI wrapper are two doors into the
+same <code>run_project()</code> call, so they cannot drift apart.</p>
 <div class="grid">
   <div class="card"><div class="ico">&#129516;</div><h3>Agents that don't exist yet</h3>
-    <p>When a request needs a capability no registered agent covers, AgentMesh writes an agent for it and runs it. Ephemeral by default, saved only when you ask.</p>
+    <p>A capability nothing covers gets an agent written for it at runtime. Ephemeral by default, kept only when you ask, versioned when adapted.</p>
     <a class="more" href="concepts.html">Core concepts &#8594;</a></div>
+  <div class="card"><div class="ico">&#128295;</div><h3>Agents that actually do things</h3>
+    <p>Real tools, not prompts pretending. SQL analysis, PII detection with Luhn validation, data profiling &#8212; plus any MCP server you point at it.</p>
+    <a class="more" href="tools.html">Tools &amp; MCP &#8594;</a></div>
+  <div class="card"><div class="ico">&#128202;</div><h3>Your data stays yours</h3>
+    <p>An agent declares what data it <em>needs</em>. You bind it to your own source. Publish the agent without publishing a single row.</p>
+    <a class="more" href="data.html">Data &amp; connectors &#8594;</a></div>
   <div class="card"><div class="ico">&#128376;</div><h3>A real dependency graph</h3>
-    <p>Agents declare <code>depends_on</code> and run in topological levels. Independent agents run concurrently. Cycles fail at build time, not mid-run.</p>
-    <a class="more" href="graph.html">The agent graph &#8594;</a></div>
-  <div class="card"><div class="ico">&#128268;</div><h3>Bring your own model</h3>
-    <p>Claude and OpenAI adapters behind one provider interface, plus a deterministic mock for offline work. Your keys, your model, per-agent routing.</p>
-    <a class="more" href="providers.html">Models &amp; credentials &#8594;</a></div>
-  <div class="card"><div class="ico">&#128257;</div><h3>Retries that know better</h3>
-    <p>Backoff with jitter on 5xx, connection errors, and rate limits. Auth failures and refusals fail immediately instead of burning attempts.</p>
+    <p>Agents declare <code>depends_on</code> and run concurrently where they can. Use the built-in engine, or LangGraph for checkpointing and human-in-the-loop.</p>
+    <a class="more" href="graph.html">Execution &amp; graph &#8594;</a></div>
+  <div class="card"><div class="ico">&#128273;</div><h3>Governance from the start</h3>
+    <p>View, use, fork, version as separate permissions. An agent you cannot see is invisible; one you cannot use is blocked and explained &#8212; never silently replaced.</p>
+    <a class="more" href="governance.html">Governance &#8594;</a></div>
+  <div class="card"><div class="ico">&#128184;</div><h3>Every call accounted for</h3>
+    <p>Tokens, cost, retries and duration per model call; rows, bytes and cost per query. No default spending cap &#8212; AgentMesh will not pick your budget.</p>
     <a class="more" href="observability.html">Cost &amp; reliability &#8594;</a></div>
-  <div class="card"><div class="ico">&#128202;</div><h3>Every call accounted for</h3>
-    <p>Tokens, cost, attempts, duration, and outcome recorded per model call, not per agent. Human tables or one JSON object per call.</p>
-    <a class="more" href="observability.html">Telemetry &#8594;</a></div>
-  <div class="card"><div class="ico">&#128184;</div><h3>Your budget, your call</h3>
-    <p>There is no default spending cap. AgentMesh will not pick one for you. Set <code>--max-cost</code> when you want a ceiling.</p>
-    <a class="more" href="observability.html">Budgets &#8594;</a></div>
 </div>
 
+<h2>Built on the good parts of the ecosystem</h2>
+<p class="sub">AgentMesh decides <em>which</em> agents exist, why, and who may use them. It does not
+try to out-build the tools that already solve execution and connectivity.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>Concern</th><th>Handled by</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Registry, synthesis, versioning, permissions</td><td><b>AgentMesh</b></td><td>Nobody else does this as a product primitive</td></tr>
+<tr><td>Durable execution, checkpoints, interrupts</td><td><b>LangGraph</b></td><td>Resumable state is a distributed-systems problem</td></tr>
+<tr><td>Tools and SaaS connectors</td><td><b>MCP</b></td><td>Hundreds of servers, maintained by the vendors</td></tr>
+<tr><td>Files: CSV, Parquet, JSON</td><td><b>DuckDB</b></td><td>Correct type inference and pushdown</td></tr>
+<tr><td>Databases: Postgres, Oracle, Snowflake</td><td><b>SQLAlchemy</b></td><td>One adapter, every dialect</td></tr>
+</tbody></table></div>
+
 <h2>Execution is a graph, not a list</h2>
-<p class="sub">Agents run in dependency levels. An agent with the <code>response_composition</code>
-capability implicitly waits for everyone else and writes the final answer, so the response comes from
-the composer rather than whichever agent happened to finish last.</p>
+<p class="sub">An agent with the <code>response_composition</code> capability implicitly waits for
+everyone else and writes the final answer &#8212; so the response comes from the composer, not from
+whichever agent happened to finish last.</p>
 <div class="diagram">
-<svg viewBox="0 0 760 260" role="img" aria-label="A request fans out to two agents running in parallel, then converges on a composer agent">
+<svg viewBox="0 0 780 250" role="img" aria-label="A request fans out to two agents running concurrently, then converges on a composer agent">
 <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
 <path d="M0,0 L9,4.5 L0,9 z" fill="var(--ink-faint)"/></marker></defs>
 <g font-family="var(--mono)" font-size="12.5">
-<rect x="6" y="104" width="128" height="52" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
-<text x="70" y="126" text-anchor="middle" fill="var(--ink)">request</text>
-<text x="70" y="143" text-anchor="middle" fill="var(--ink-faint)" font-size="11">capabilities</text>
-<rect x="230" y="34" width="180" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
-<text x="320" y="57" text-anchor="middle" fill="var(--accent-ink)">sql_analyzer_agent</text>
-<text x="320" y="74" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0</text>
-<rect x="230" y="170" width="180" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
-<text x="320" y="193" text-anchor="middle" fill="var(--accent-ink)">data_quality_agent</text>
-<text x="320" y="210" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0</text>
-<rect x="506" y="104" width="172" height="56" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
-<text x="592" y="127" text-anchor="middle" fill="var(--ink)">report_agent</text>
-<text x="592" y="144" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 1 &#183; composer</text>
+<rect x="6" y="99" width="126" height="52" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
+<text x="69" y="121" text-anchor="middle" fill="var(--ink)">request</text>
+<text x="69" y="138" text-anchor="middle" fill="var(--ink-faint)" font-size="11">capabilities</text>
+<rect x="228" y="30" width="186" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+<text x="321" y="53" text-anchor="middle" fill="var(--accent-ink)">sql_analyzer_agent</text>
+<text x="321" y="70" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0 &#183; sql_analyze</text>
+<rect x="228" y="164" width="186" height="56" rx="9" fill="var(--accent-soft)" stroke="var(--accent)"/>
+<text x="321" y="187" text-anchor="middle" fill="var(--accent-ink)">data_quality_agent</text>
+<text x="321" y="204" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 0 &#183; query_data</text>
+<rect x="512" y="99" width="176" height="56" rx="9" fill="var(--bg-sunk)" stroke="var(--line)"/>
+<text x="600" y="122" text-anchor="middle" fill="var(--ink)">report_agent</text>
+<text x="600" y="139" text-anchor="middle" fill="var(--ink-faint)" font-size="11">level 1 &#183; composer</text>
 <g stroke="var(--ink-faint)" stroke-width="1.4" fill="none" marker-end="url(#ar)">
-<path d="M134,122 C182,122 182,62 224,62"/><path d="M134,138 C182,138 182,198 224,198"/>
-<path d="M410,62 C452,62 452,122 500,122"/><path d="M410,198 C452,198 452,138 500,138"/></g>
-<text x="320" y="128" text-anchor="middle" fill="var(--ink-faint)" font-size="11">run concurrently</text>
-<text x="592" y="186" text-anchor="middle" fill="var(--ink-faint)" font-size="11">&#8594; final response</text>
+<path d="M132,117 C180,117 180,58 222,58"/><path d="M132,133 C180,133 180,192 222,192"/>
+<path d="M414,58 C456,58 456,117 506,117"/><path d="M414,192 C456,192 456,133 506,133"/></g>
+<text x="321" y="124" text-anchor="middle" fill="var(--ink-faint)" font-size="11">run concurrently</text>
+<text x="600" y="181" text-anchor="middle" fill="var(--ink-faint)" font-size="11">&#8594; final response</text>
 </g></svg></div>
-<p class="cap">Two independent analysts run concurrently in level 0; the composer reads both in level 1.</p>
 
 <h2>Sixty seconds to a running mesh</h2>
 <div class="two">
-<div><h3>Install and run offline</h3>
+<div><h3>Offline, no credentials</h3>
 <pre><code>git clone https://github.com/tanikellanjali/agentmesh
 cd agentmesh
 pip install -e <span class="c-str">".[dev]"</span>
 
 agentmesh run --project data_ops \
-  <span class="c-str">"Review this SQL query"</span> --provider mock</code></pre>
-<p class="cap">No credentials required. The mock provider is deterministic.</p></div>
+  <span class="c-str">"Review this SQL query"</span> --provider mock</code></pre></div>
 <div><h3>Then plug in a real model</h3>
-<pre><code>pip install -e <span class="c-str">".[anthropic]"</span>
+<pre><code>pip install -e <span class="c-str">".[all]"</span>
 
 agentmesh configure-models    <span class="c-com"># your keys</span>
 agentmesh check-models --live <span class="c-com"># prove they work</span>
 
 agentmesh run --project data_ops \
-  <span class="c-str">"Review this SQL query"</span> --max-cost 0.50</code></pre>
-<p class="cap">Keys are merged into <code>.env</code>, which is gitignored.</p></div>
+  <span class="c-str">"Review this SQL query"</span> --max-cost 0.50</code></pre></div>
 </div>
-
-<div class="note"><b>No silent fallbacks.</b> If no provider is usable, the run fails with an explicit
-error naming every attempt. AgentMesh will never hand you placeholder output dressed up as a real answer.</div>
+<div class="note"><b>No silent fallbacks.</b> If no provider is usable the run fails, naming every
+attempt. AgentMesh will never hand you placeholder output dressed up as a real answer.</div>
 
 <h2>Honest status</h2>
-<p class="sub">v0.1.0, 81 passing tests. Young project &#8212; the
-<a href="roadmap.html">status page</a> lists exactly what works and what doesn't, including the gaps.</p>
-<div class="cta" style="margin-bottom:56px">
+<p class="sub">v0.1.0, <b>171 passing tests</b>. Young project &#8212; the
+<a href="roadmap.html">status page</a> lists what works and what doesn't, including the gap that
+matters most: capability resolution is still keyword matching.</p>
+<div class="cta" style="margin-bottom:52px">
   <a class="btn primary" href="getting-started.html">Read the docs</a>
   <a class="btn" href="roadmap.html">See what's missing</a>
 </div>

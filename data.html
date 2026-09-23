@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data &amp; connectors &#8212; AgentMesh</title>
+<meta name="description" content="Portable data requirements, tenant-owned bindings, DuckDB and SQLAlchemy sources, and cost estimated before a query runs.">
+<meta property="og:title" content="Data &amp; connectors &#8212; AgentMesh">
+<meta property="og:description" content="Portable data requirements, tenant-owned bindings, DuckDB and SQLAlchemy sources, and cost estimated before a query runs.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%95%B8%EF%B8%8F</text></svg>">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<nav class="top"><div class="wrap nav-in">
+  <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
+  <button id="menu" aria-label="Menu">Menu</button>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+</div></nav>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html" class="on">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html">Status &amp; roadmap</a></div></aside><main><h1>Data &amp; connectors</h1>
+<p class="lede">An agent declares what data it <em>needs</em>. You bind that to your own source.
+The spec is portable; the data never moves.</p>
+
+<h2>Three layers</h2>
+<p class="sub">Putting connection details in an agent would make it unshareable. Splitting them is
+what lets one published agent run against many tenants' data.</p>
+<pre><code><span class="c-com"># 1. REQUIREMENT - part of the agent spec. Public. Portable.</span>
+<span class="c-key">data_requirements</span>:
+  - <span class="c-key">name</span>: transactions
+    <span class="c-key">kind</span>: table
+    <span class="c-key">required_columns</span>: [date, amount, supplier_id]
+    <span class="c-key">description</span>: Historical purchase transactions</code></pre>
+<pre><code><span class="c-com"># 2. BINDING - tenant-owned. Never travels with the agent.</span>
+registry.bind(<span class="c-str">"transactions"</span>, source=<span class="c-str">"warehouse"</span>, ref=<span class="c-str">"analytics.purchases"</span>)</code></pre>
+<pre><code><span class="c-com"># 3. SOURCE - tenant-owned, credentialed.</span>
+registry.add_source(SqlAlchemySource(<span class="c-str">"warehouse"</span>, url=os.environ[<span class="c-str">"WAREHOUSE_URL"</span>]))</code></pre>
+<p>Publishing an agent ships layer 1 only. Someone installs it, is told "this needs a transactions
+table with these columns", and points it at their own. It also makes agents testable &#8212; bind the
+requirement to a CSV fixture.</p>
+
+<h2>Handles, not payloads</h2>
+<p class="sub">Tools receive something they can query, never a pile of rows.</p>
+<pre><code><span class="c-key">def</span> <span class="c-fn">supplier_spend</span>(ctx, since: str):
+    rows = ctx.table(<span class="c-str">"transactions"</span>).query(
+        <span class="c-str">"SELECT supplier_id, SUM(amount) FROM {table} WHERE date &gt;= :since GROUP BY 1"</span>,
+        since=since,
+    )
+    <span class="c-key">return</span> summarize(rows)   <span class="c-com"># only this reaches the model</span></code></pre>
+<div class="grid" style="margin-top:18px">
+  <div class="card"><h3>Cost</h3><p>A margin calculation over 400k rows costs zero tokens. It queries, computes, returns a number.</p></div>
+  <div class="card"><h3>Security</h3><p>The model provider never sees raw customer data. Data minimisation is most of a security review.</p></div>
+  <div class="card"><h3>Correctness</h3><p>The database does the arithmetic, not a language model.</p></div>
+</div>
+
+<h2>Sources</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>Source</th><th>Covers</th><th>Extra</th></tr></thead>
+<tbody>
+<tr><td><code>DuckDbSource</code></td><td>CSV, Parquet, JSON, globs &#8212; correct type inference, pushdown</td><td><code>[duckdb]</code></td></tr>
+<tr><td><code>SqlAlchemySource</code></td><td>Postgres, MySQL, Oracle, SQL Server, Snowflake, SQLite</td><td><code>[sql]</code></td></tr>
+<tr><td><code>SqliteSource</code></td><td>In-memory tables, zero dependencies</td><td>&#8212;</td></tr>
+<tr><td><code>CsvSource</code></td><td><span class="no">Deprecated.</span> Reads every column as TEXT</td><td>&#8212;</td></tr>
+</tbody></table></div>
+<div class="warn"><b>Why <code>CsvSource</code> is deprecated.</b> It typed every column as TEXT, which
+makes <code>units &gt; 100</code> a <em>string</em> comparison &#8212; returning every row instead of
+the right one. <code>DuckDbSource</code> infers <code>BIGINT</code>, <code>DOUBLE</code> and
+<code>DATE</code> correctly. It is kept only so a bare install has a file source.</div>
+
+<h2>Every query is gated</h2>
+<pre><code>authorize &#8594; estimate cost &#8594; check budget &#8594; execute &#8594; record</code></pre>
+<p>Writes are refused before they reach the database, identifiers are validated, results are capped
+and flagged when truncated, and every query lands in telemetry with rows, bytes, cost and duration.</p>
+<pre><code>&gt;&gt;&gt; source.query(<span class="c-str">"sales"</span>, <span class="c-str">"DELETE FROM {table}"</span>)
+DataError: source 'warehouse' is read-only; refusing a mutating statement</code></pre>
+
+<h2>Cost before you spend it</h2>
+<p>Queries can be priced before execution, so an agent can refuse an expensive one rather than
+discovering the bill afterwards.</p>
+<pre><code>estimate = ctx.table(<span class="c-str">"transactions"</span>).estimate(<span class="c-str">"SELECT * FROM {table}"</span>)
+<span class="c-com"># bytes_scanned, cost_usd, exact</span></code></pre>
+<p>Set a ceiling and a query that would cross it never runs:</p>
+<pre><code>DataBudgetExceeded: query would scan 4,203,551,608 bytes (~\$21.0178);
+that exceeds the \$5.0000 data ceiling (spent \$0.0000).</code></pre><div class="pager"><a href="tools.html"><span>Previous</span>Tools &amp; MCP</a><a href="graph.html" style="text-align:right"><span>Next</span>Execution &amp; graph</a></div></main></div>
+<footer><div class="wrap foot">
+  <span>MIT licensed</span>
+  <a href="https://github.com/tanikellanjali/agentmesh">GitHub</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/issues">Issues</a>
+  <a href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">Contributing</a>
+  <a href="roadmap.html">Roadmap</a>
+</div></footer>
+<script src="assets/site.js"></script>
+</body>
+</html>

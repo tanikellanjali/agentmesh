@@ -14,59 +14,67 @@
 <nav class="top"><div class="wrap nav-in">
   <a class="brand" href="index.html">&#128376; AgentMesh <span class="pill">v0.1.0</span></a>
   <button id="menu" aria-label="Menu">Menu</button>
-  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html" class="on">Roadmap</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
+  <div class="nav-links"><a href="getting-started.html">Docs</a><a href="cli.html">CLI</a><a href="api.html">API</a><a href="roadmap.html">Status</a><a class="btn sm" href="https://github.com/tanikellanjali/agentmesh">GitHub</a></div>
 </div></nav>
-<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="graph.html">The agent graph</a><a href="providers.html">Models & credentials</a><a href="observability.html">Cost & reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html" class="on">Status & roadmap</a></div></aside><main><h1>Status &amp; roadmap</h1>
-<p class="lede">v0.1.0, 81 passing tests. This page is the real state of the project, not a roadmap
-dressed up as a changelog.</p>
+<div class="wrap layout"><aside><div class="grp"><div class="grp-t">Guide</div><a href="getting-started.html">Getting started</a><a href="concepts.html">Core concepts</a><a href="tools.html">Tools &amp; MCP</a><a href="data.html">Data &amp; connectors</a><a href="graph.html">Execution &amp; graph</a><a href="providers.html">Models &amp; credentials</a><a href="governance.html">Governance &amp; access</a><a href="observability.html">Cost &amp; reliability</a></div><div class="grp"><div class="grp-t">Reference</div><a href="cli.html">CLI commands</a><a href="api.html">HTTP API</a></div><div class="grp"><div class="grp-t">Project</div><a href="roadmap.html" class="on">Status &amp; roadmap</a></div></aside><main><h1>Status &amp; roadmap</h1>
+<p class="lede">v0.1.0, <b>171 passing tests</b>. This page is the real state of the project, not a
+roadmap dressed up as a changelog.</p>
 
 <h2>What works</h2>
 <div class="tablewrap"><table>
 <thead><tr><th>Capability</th><th>State</th><th>Notes</th></tr></thead>
 <tbody>
 <tr><td>YAML specs, registry, capability matching</td><td class="yes">Working</td><td>Strict validation; typo'd specs fail loudly</td></tr>
-<tr><td>Dynamic agent synthesis</td><td class="yes">Working</td><td>Deterministic &#8212; not yet model-written</td></tr>
+<tr><td>Dynamic agent synthesis + versioning</td><td class="yes">Working</td><td>Deterministic &#8212; not yet model-written</td></tr>
 <tr><td>Opt-in agent persistence</td><td class="yes">Working</td><td><code>--save-agents</code>; ephemeral otherwise</td></tr>
-<tr><td>Dependency graph + concurrency</td><td class="yes">Working</td><td>Topological levels, cycle detection</td></tr>
-<tr><td>Claude provider</td><td class="yes">Working</td><td>Tested against real SDK response objects</td></tr>
-<tr><td>OpenAI provider</td><td class="yes">Working</td><td>Not yet verified against the live API</td></tr>
-<tr><td>Retries with backoff</td><td class="yes">Working</td><td>Transient failures only</td></tr>
-<tr><td>Per-call telemetry &amp; cost</td><td class="yes">Working</td><td>Tokens, attempts, duration, outcome</td></tr>
-<tr><td>Opt-in budget ceilings</td><td class="yes">Working</td><td>Concurrent levels can overshoot; <code>--max-workers 1</code> is strict</td></tr>
-<tr><td>Output-contract validation</td><td class="yes">Working</td><td>Violations reported, never hidden</td></tr>
+<tr><td>Real tools + agentic tool loop</td><td class="yes">Working</td><td>SQL analysis, PII with Luhn, profiling</td></tr>
+<tr><td>MCP bridge</td><td class="yes">Working</td><td>Tested against a live server; handles SDK v1 and v2</td></tr>
+<tr><td>Data requirements &#8594; bindings &#8594; sources</td><td class="yes">Working</td><td>DuckDB and SQLAlchemy</td></tr>
+<tr><td>Dependency graph + concurrency</td><td class="yes">Working</td><td>Native engine, cycle detection</td></tr>
+<tr><td>LangGraph engine</td><td class="yes">Working</td><td>Checkpointing, resume, interrupts</td></tr>
+<tr><td>Claude &amp; OpenAI providers</td><td class="yes">Working</td><td>OpenAI adapter not yet verified live</td></tr>
+<tr><td>Retries, telemetry, cost accounting</td><td class="yes">Working</td><td>Per model call, tool run and query</td></tr>
+<tr><td>Opt-in budget ceilings</td><td class="yes">Working</td><td>Models and data, separately</td></tr>
+<tr><td>Principal, authorizer, catalog</td><td class="yes">Working</td><td>Interfaces + defaults; enforcement needs a host</td></tr>
 </tbody></table></div>
 
 <h2>What doesn't</h2>
 <div class="tablewrap"><table>
 <thead><tr><th>Gap</th><th>Impact</th></tr></thead>
 <tbody>
-<tr><td>Per-call timeouts</td><td>A hung provider blocks its level indefinitely</td></tr>
-<tr><td>Run persistence under <code>.runs/</code></td><td>Telemetry is structured but lost when the process exits</td></tr>
+<tr><td><b>Capability resolution</b></td><td><b>The big one.</b> Substring keyword matching over 18 fixed capabilities. A request about translation resolves to <code>report_generation</code> and reports no missing capability</td></tr>
+<tr><td>Agent discovery &amp; reuse</td><td>The resolver does not yet search the catalog to reuse or adapt an existing agent</td></tr>
+<tr><td>Deterministic executors</td><td>Every agent makes a model call; a profit calculator should not</td></tr>
+<tr><td>Per-call timeouts</td><td>A hung provider blocks its level</td></tr>
+<tr><td>Run persistence</td><td>Telemetry is structured but lost on exit</td></tr>
 <tr><td>API authentication</td><td>The FastAPI app must not be exposed publicly</td></tr>
-<tr><td>LLM-based synthesis</td><td>Synthesized agents are templated, not reasoned about</td></tr>
-<tr><td>Capability resolution</td><td>Keyword matching over request text; brittle and hard to scale</td></tr>
-<tr><td>Ollama / local provider</td><td><code>local</code> is currently an alias for the mock</td></tr>
-<tr><td>CI pipeline</td><td>No GitHub Actions, linter, or type checker configured yet</td></tr>
+<tr><td>Large-file handling</td><td>Results are capped but not streamed or chunked</td></tr>
+<tr><td>CI pipeline</td><td>No Actions, linter or type checker configured</td></tr>
 <tr><td><code>agentflow</code> extra</td><td>References packages not on PyPI; the install fails</td></tr>
 </tbody></table></div>
 
 <h2>Next up</h2>
 <ol class="tight">
-<li><b>Per-call timeouts</b> &#8212; the last thing between this and an unattended run you can trust</li>
-<li><b>Run logs under <code>.runs/</code></b> &#8212; the telemetry is already structured for it</li>
-<li><b>Model-written synthesis</b> &#8212; richer agents drafted from the request, not a template</li>
-<li><b>A real capability resolver</b> &#8212; replacing keyword matching</li>
+<li><b>The resolver</b> &#8212; discovery &#8594; reuse / adapt / create, against the catalog and authorizer. Replaces the keyword table entirely</li>
+<li><b>Deterministic executors</b> &#8212; agents that cost zero tokens</li>
+<li><b>Per-call timeouts</b> and run persistence</li>
+<li><b>OpenTelemetry export</b> &#8212; traces into Langfuse or LangSmith</li>
 <li><b>CI</b> &#8212; Actions matrix on 3.11&#8211;3.13, ruff, mypy</li>
 </ol>
+
+<h2>Design principles</h2>
+<div class="grid">
+  <div class="card"><h3>Consume, don't rebuild</h3><p>LangGraph runs the graph, MCP provides connectors, DuckDB reads files, SQLAlchemy talks to databases. AgentMesh decides which agents exist and who may use them.</p></div>
+  <div class="card"><h3>Never fake success</h3><p>No silent fallback to a mock. Contract violations are reported. Failed tools are surfaced to the model, not swallowed.</p></div>
+  <div class="card"><h3>Your budget, your call</h3><p>No default spending cap of any kind.</p></div>
+</div>
 
 <h2>Contributing</h2>
 <p>The gaps above are the best places to start. Small, well-tested PRs are easiest to review.</p>
 <div class="cta">
 <a class="btn primary" href="https://github.com/tanikellanjali/agentmesh/issues">Open an issue</a>
 <a class="btn" href="https://github.com/tanikellanjali/agentmesh/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>
-<a class="btn" href="https://github.com/tanikellanjali/agentmesh/blob/main/docs/roadmap.md">roadmap.md</a>
 </div>
-<p style="margin-top:22px">Run the suite before you push:</p>
 <pre><code>pip install -e <span class="c-str">".[dev]"</span>
 pytest -q</code></pre><div class="pager"><a href="api.html"><span>Previous</span>HTTP API</a><span></span></div></main></div>
 <footer><div class="wrap foot">

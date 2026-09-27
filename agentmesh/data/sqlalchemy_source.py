@@ -79,6 +79,15 @@ class SqlAlchemySource:
         except Exception as exc:
             raise DataError(f"query failed on '{self.name}': {exc}") from exc
 
+    def probe(self) -> None:
+        """Open a connection and close it. Proves credentials and reachability
+        without needing to know a table name."""
+        try:
+            with self._engine.connect():
+                pass
+        except Exception as exc:
+            raise DataError(f"could not connect to '{self.name}': {exc}") from exc
+
     def describe(self, ref: str) -> TableSchema:
         from sqlalchemy import inspect
 

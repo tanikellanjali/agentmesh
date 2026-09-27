@@ -67,6 +67,12 @@ def test_summarize_reports_nulls_and_cardinality(duck) -> None:
     assert float(summary["units"]["null_percentage"]) == 0.0
 
 
+def test_probe_proves_the_engine_answers(duck) -> None:
+    """A connection nobody has opened is a guess. probe() opens it without
+    needing to know a table name."""
+    duck.probe()
+
+
 def test_a_missing_relation_is_reported(duck) -> None:
     with pytest.raises(DataError):
         duck.describe("ghost.csv")
@@ -118,6 +124,19 @@ def test_parameters_are_bound_not_interpolated(alchemy) -> None:
 def test_writes_are_refused_on_a_database(alchemy) -> None:
     with pytest.raises(DataError, match="read-only"):
         alchemy.query("sales", "DELETE FROM {table}")
+
+
+def test_probe_opens_a_real_connection(alchemy) -> None:
+    alchemy.probe()
+
+
+def test_probe_reports_an_unreachable_database(tmp_path) -> None:
+    sa = pytest.importorskip("sqlalchemy")  # noqa: F841
+    from agentmesh.data.sqlalchemy_source import SqlAlchemySource
+
+    source = SqlAlchemySource("missing", f"sqlite:///{tmp_path}/nope/deep/x.db")
+    with pytest.raises(DataError, match="could not connect"):
+        source.probe()
 
 
 def test_unsafe_references_are_rejected(alchemy) -> None:

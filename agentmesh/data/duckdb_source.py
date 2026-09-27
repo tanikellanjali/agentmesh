@@ -87,6 +87,10 @@ class DuckDbSource:
             raise DataError(f"query failed on '{self.name}': {exc}") from exc
 
     # -- api --------------------------------------------------------------
+    def probe(self) -> None:
+        """Prove the engine answers, without needing a file to exist yet."""
+        self._execute("SELECT 1")
+
     def describe(self, ref: str) -> TableSchema:
         relation = self._relation(ref)
         cursor = self._execute(f"SELECT * FROM {relation} LIMIT 0")
